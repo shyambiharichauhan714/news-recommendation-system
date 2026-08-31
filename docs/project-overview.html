@@ -1,0 +1,660 @@
+<title>NewsMind AI Build Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --ground:      #FAFAFC;
+    --surface:     #FFFFFF;
+    --surface-alt: #F3F4F9;
+    --line:        #E3E5EF;
+    --line-strong: #C9CCDD;
+    --ink:         #16182B;
+    --ink-mid:     #4A4E68;
+    --ink-soft:    #767B95;
+    --accent:      #3B52E0;
+    --accent-soft: #EDEFFE;
+    --violet:      #7C4DEF;
+    --violet-soft: #F1EBFE;
+    --good:        #0B7D5B;
+    --good-soft:   #E3F5EE;
+    --warn:        #9A6612;
+    --warn-soft:   #FBF0DC;
+    --shadow:      0 1px 2px rgba(22, 24, 43, .05), 0 8px 24px rgba(22, 24, 43, .05);
+
+    --measure: 68ch;
+    --step--1: .8125rem;
+    --step-0:  1.0625rem;
+    --step-1:  1.3rem;
+    --step-2:  1.65rem;
+    --step-3:  2.15rem;
+    --step-4:  3rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0E1020;
+      --surface:     #171A2C;
+      --surface-alt: #1E2237;
+      --line:        #2A2F49;
+      --line-strong: #3C4260;
+      --ink:         #EDEEF6;
+      --ink-mid:     #B4B8CE;
+      --ink-soft:    #858AA6;
+      --accent:      #8697FF;
+      --accent-soft: #1D2352;
+      --violet:      #B79BFF;
+      --violet-soft: #241A48;
+      --good:        #4FD1A5;
+      --good-soft:   #10322A;
+      --warn:        #E0B366;
+      --warn-soft:   #33260F;
+      --shadow:      0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #0E1020;
+    --surface:     #171A2C;
+    --surface-alt: #1E2237;
+    --line:        #2A2F49;
+    --line-strong: #3C4260;
+    --ink:         #EDEEF6;
+    --ink-mid:     #B4B8CE;
+    --ink-soft:    #858AA6;
+    --accent:      #8697FF;
+    --accent-soft: #1D2352;
+    --violet:      #B79BFF;
+    --violet-soft: #241A48;
+    --good:        #4FD1A5;
+    --good-soft:   #10322A;
+    --warn:        #E0B366;
+    --warn-soft:   #33260F;
+    --shadow:      0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: var(--step-0);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 3rem) 6rem;
+  }
+
+  .prose { max-width: var(--measure); }
+
+  h1, h2, h3, .display {
+    font-family: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  code, .mono, td.num, .metric-val {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  code {
+    font-size: .85em;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .1em .38em;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    padding: clamp(2.5rem, 6vw, 4.5rem) 0 2.5rem;
+    margin-bottom: 3.5rem;
+  }
+  header.masthead .wrap { padding-bottom: 0; }
+
+  .eyebrow {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-size: var(--step--1);
+    font-weight: 500;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 1rem;
+  }
+
+  h1 { font-size: clamp(2.1rem, 6vw, var(--step-4)); line-height: 1.02; }
+
+  .standfirst {
+    max-width: 58ch;
+    margin: 1.25rem 0 0;
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink-mid);
+  }
+
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .625rem;
+    margin-top: 2rem;
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-size: var(--step--1);
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--ink);
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: .5rem 1rem;
+    transition: border-color .15s, color .15s;
+  }
+  .links a:hover, .links a:focus-visible { border-color: var(--accent); color: var(--accent); }
+  .links a .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* ---------- sections ---------- */
+
+  section { margin-bottom: 4.5rem; }
+
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: .9rem;
+    padding-bottom: .85rem;
+    margin-bottom: 1.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .sec-head h2 { font-size: var(--step-2); }
+  .sec-head .tag {
+    margin-left: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: var(--step--1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  p { margin: 0 0 1.1rem; }
+  .prose p:last-child { margin-bottom: 0; }
+
+  /* ---------- pipeline diagram ---------- */
+
+  .pipeline {
+    display: grid;
+    gap: .5rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+    margin: 2rem 0 .75rem;
+  }
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: .9rem 1rem;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .stage .k {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: block;
+    margin-bottom: .3rem;
+  }
+  .stage .v {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-weight: 500;
+    font-size: .95rem;
+    line-height: 1.3;
+    display: block;
+  }
+  .stage .m {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .7rem;
+    color: var(--ink-soft);
+    display: block;
+    margin-top: .35rem;
+  }
+  .stage.ml { border-color: var(--violet); background: var(--violet-soft); }
+  .stage.ml .v { color: var(--violet); }
+
+  /* ---------- tables ---------- */
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: .7rem 1rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  thead th {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-size: .7rem;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--surface-alt);
+    white-space: nowrap;
+  }
+  td.num { text-align: right; white-space: nowrap; }
+  td .sub { display: block; color: var(--ink-soft); font-size: .84em; margin-top: .15rem; }
+  .win { color: var(--good); font-weight: 600; }
+
+  /* ---------- metric cards ---------- */
+
+  .metrics {
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+  }
+  .metric .lbl {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-size: .7rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    display: block;
+  }
+  .metric-val { font-size: var(--step-2); font-weight: 600; display: block; margin: .35rem 0 .15rem; letter-spacing: -.02em; }
+  .metric .delta { font-size: .8rem; color: var(--good); font-family: "JetBrains Mono", monospace; }
+  .bar { height: 4px; border-radius: 99px; background: var(--surface-alt); overflow: hidden; margin-top: .6rem; display: flex; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .bar i.base { background: var(--line-strong); }
+
+  /* ---------- build log ---------- */
+
+  ol.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.5rem; }
+  ol.log > li {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+  ol.log .n {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: .3rem 0;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  ol.log h3 { font-size: 1.02rem; font-weight: 700; margin-bottom: .3rem; }
+  ol.log p { margin: 0; color: var(--ink-mid); font-size: .97rem; }
+
+  /* ---------- bug cards ---------- */
+
+  .bugs { display: grid; gap: 1rem; }
+  .bug {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--warn);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .bug h3 { font-size: 1.02rem; margin-bottom: .5rem; }
+  .bug p { margin: 0 0 .55rem; font-size: .95rem; color: var(--ink-mid); }
+  .bug p:last-child { margin-bottom: 0; }
+  .bug .fix { color: var(--good); font-weight: 600; }
+
+  /* ---------- split note ---------- */
+
+  .cols { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .panel h3 { font-size: .95rem; margin-bottom: .6rem; display: flex; align-items: center; gap: .5rem; }
+  .panel ul { margin: 0; padding-left: 1.1rem; font-size: .93rem; color: var(--ink-mid); }
+  .panel li { margin-bottom: .35rem; }
+  .pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .66rem;
+    padding: .15rem .45rem;
+    border-radius: 4px;
+    letter-spacing: .02em;
+  }
+  .pill.live { background: var(--good-soft); color: var(--good); }
+  .pill.local { background: var(--warn-soft); color: var(--warn); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    color: var(--ink-soft);
+    font-size: var(--step--1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Project overview &middot; MSc AI Part 2</p>
+    <h1>NewsMind AI</h1>
+    <p class="standfirst">
+      A news recommender that models the <em>order</em> people read in. A GRU
+      network turns each reader's recent sequence into a preference vector,
+      then ranks every unread article against it &mdash; and explains why.
+    </p>
+    <nav class="links">
+      <a href="https://newsmind-web.vercel.app" target="_blank" rel="noopener"><span class="dot"></span>Live dashboard</a>
+      <a href="https://newsmind-api.vercel.app/docs" target="_blank" rel="noopener"><span class="dot"></span>API docs</a>
+      <a href="https://github.com/shyambiharichauhan714/news-recommendation-system" target="_blank" rel="noopener">Source on GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <div class="sec-head"><h2>How it works</h2><span class="tag">end to end</span></div>
+    <div class="prose">
+      <p>
+        Most recommenders treat your history as a bag of topics. This one treats it
+        as a path. Reading <em>Machine Learning &rarr; LLM Research &rarr; Generative AI</em>
+        says something that the same three articles in any other order does not, and a
+        GRU is built to carry exactly that kind of state forward.
+      </p>
+    </div>
+    <div class="pipeline">
+      <div class="stage">
+        <span class="k">Input</span><span class="v">News catalog</span>
+        <span class="m">93 articles &middot; 8 categories</span>
+      </div>
+      <div class="stage ml">
+        <span class="k">Encode</span><span class="v">Sentence-Transformers</span>
+        <span class="m">all-MiniLM-L6-v2 &rarr; 384d</span>
+      </div>
+      <div class="stage">
+        <span class="k">Sequence</span><span class="v">Sliding window</span>
+        <span class="m">last 5 reads &rarr; next read</span>
+      </div>
+      <div class="stage ml">
+        <span class="k">Model</span><span class="v">GRU network</span>
+        <span class="m">2 &times; 128 hidden &middot; 297k params</span>
+      </div>
+      <div class="stage">
+        <span class="k">Rank</span><span class="v">Cosine similarity</span>
+        <span class="m">exclude already-read</span>
+      </div>
+      <div class="stage">
+        <span class="k">Output</span><span class="v">Top-N + reason</span>
+        <span class="m">match score 0&ndash;100</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>The stack</h2><span class="tag">133 files</span></div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Built with</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Frontend</strong><span class="sub">43 TS/TSX files</span></td>
+            <td>Next.js 14 (App Router), TypeScript, Tailwind CSS</td>
+            <td>Recharts for charts, Framer Motion for transitions, Lucide icons. Nine routes: dashboard, For You, Discover, History, Analytics, Model Insights, Profile, login, register.</td>
+          </tr>
+          <tr>
+            <td><strong>Backend</strong><span class="sub">57 Python files</span></td>
+            <td>FastAPI, Pydantic, SQLAlchemy, Uvicorn</td>
+            <td>Routers for news, users, interactions, recommendations, analytics and model control. JWT auth via python-jose, bcrypt password hashing.</td>
+          </tr>
+          <tr>
+            <td><strong>Machine learning</strong></td>
+            <td>PyTorch, Sentence-Transformers, scikit-learn, NumPy</td>
+            <td>GRU trained on CPU. TF-IDF + SVD is a built-in fallback when transformers are unavailable, and doubles as the evaluation baseline.</td>
+          </tr>
+          <tr>
+            <td><strong>Database</strong></td>
+            <td>SQLite via SQLAlchemy</td>
+            <td>One env var swaps it for PostgreSQL. Five tables &mdash; users, news, user_interactions, user_preferences, model_metrics.</td>
+          </tr>
+          <tr>
+            <td><strong>Deployment</strong></td>
+            <td>Vercel &times; 2 (Next.js + Python serverless)</td>
+            <td>Frontend proxies <code>/api/*</code> to the API project, so the browser only ever talks to its own origin and there is no CORS to configure.</td>
+          </tr>
+          <tr>
+            <td><strong>Quality</strong></td>
+            <td>pytest, Vitest, GitHub Actions</td>
+            <td>73 tests. CI runs on Python 3.11 and 3.13, plus frontend typecheck, lint, test and build.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Does the model actually work?</h2><span class="tag">1,314 validation samples</span></div>
+    <div class="prose">
+      <p>
+        Measured against a TF-IDF content-similarity baseline &mdash; the honest
+        comparison, since it uses the same embeddings but ignores order. If sequence
+        modelling were not earning its place, the two would be level.
+      </p>
+    </div>
+    <div class="metrics" style="margin-bottom:1rem">
+      <div class="metric">
+        <span class="lbl">NDCG@5</span>
+        <span class="metric-val">0.326</span>
+        <span class="delta">+66% vs baseline</span>
+        <span class="bar"><i style="width:66%"></i><i class="base" style="width:34%"></i></span>
+      </div>
+      <div class="metric">
+        <span class="lbl">Hit rate@5</span>
+        <span class="metric-val">0.452</span>
+        <span class="delta">+50% vs baseline</span>
+        <span class="bar"><i style="width:67%"></i><i class="base" style="width:33%"></i></span>
+      </div>
+      <div class="metric">
+        <span class="lbl">Recall@5</span>
+        <span class="metric-val">0.452</span>
+        <span class="delta">+50% vs baseline</span>
+        <span class="bar"><i style="width:67%"></i><i class="base" style="width:33%"></i></span>
+      </div>
+      <div class="metric">
+        <span class="lbl">MRR</span>
+        <span class="metric-val">0.303</span>
+        <span class="delta">correct pick ~3rd</span>
+        <span class="bar"><i style="width:60%"></i><i class="base" style="width:40%"></i></span>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Metric @5</th><th class="num">GRU</th><th class="num">TF-IDF baseline</th><th class="num">Lift</th></tr></thead>
+        <tbody>
+          <tr><td>Precision</td><td class="num">0.090</td><td class="num">0.060</td><td class="num win">+50%</td></tr>
+          <tr><td>Recall</td><td class="num">0.452</td><td class="num">0.302</td><td class="num win">+50%</td></tr>
+          <tr><td>NDCG</td><td class="num">0.326</td><td class="num">0.196</td><td class="num win">+66%</td></tr>
+          <tr><td>Hit rate</td><td class="num">0.452</td><td class="num">0.302</td><td class="num win">+50%</td></tr>
+          <tr><td>MRR</td><td class="num">0.303</td><td class="num">&mdash;</td><td class="num">&mdash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>The data</h2><span class="tag">synthetic, deterministic</span></div>
+    <div class="prose">
+      <p>
+        Everything is generated from a fixed seed, so a re-seed reproduces the exact
+        dataset a model was trained on. Ten named personas exist to make the dashboard
+        legible; the 400-reader cohort exists to make the model trainable.
+      </p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Table</th><th class="num">Rows</th><th>What it holds</th></tr></thead>
+        <tbody>
+          <tr><td><code>news</code></td><td class="num">93</td><td>Articles across 8 categories and ~32 topics</td></tr>
+          <tr><td><code>users</code></td><td class="num">410</td><td>10 demo personas + 400 anonymous training readers</td></tr>
+          <tr><td><code>user_interactions</code></td><td class="num">10,711</td><td>Timestamped reads and bookmarks &mdash; the sequences the GRU learns from</td></tr>
+          <tr><td><code>user_preferences</code></td><td class="num">410</td><td>Preferred categories and topics per reader</td></tr>
+          <tr><td><code>model_metrics</code></td><td class="num">4</td><td>Stored evaluation runs</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>What changed, in order</h2><span class="tag">build log</span></div>
+    <div class="prose" style="margin-bottom:2rem">
+      <p>
+        The scaffold already existed &mdash; pages, routers, the GRU class, a dataset
+        generator. What follows is the work of getting it to actually run, train,
+        connect and ship.
+      </p>
+    </div>
+    <ol class="log">
+      <li>
+        <span class="n">01</span>
+        <div>
+          <h3>Got it running</h3>
+          <p>Set up a Python 3.13 environment. The pinned dependencies had no wheels for 3.13, so versions were relaxed and PyTorch installed CPU-only. <code>email-validator</code> was missing from requirements entirely &mdash; the API could not import without it.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">02</span>
+        <div>
+          <h3>Made the dataset trainable</h3>
+          <p>Seeding produced 44 interactions, which at a sequence length of 5 yields <em>one</em> training sample and a crash. Added a 400-reader cohort whose sequences follow topic-sticky random walks: <strong>10,711 interactions, 8,754 samples</strong>.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">03</span>
+        <div>
+          <h3>Trained and evaluated</h3>
+          <p>40 epochs on CPU. Installed Sentence-Transformers so embeddings came from all-MiniLM-L6-v2 rather than the TF-IDF fallback, lifting the embedding dimension from 92 to 384.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">04</span>
+        <div>
+          <h3>Connected the interface to the model</h3>
+          <p>The dashboard had working-looking controls that did nothing. Added persisted reads and bookmarks, an article reader, a real search, notifications and persona switching &mdash; then moved search, the reader and the persona list off the bundled demo data onto the live API.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">05</span>
+        <div>
+          <h3>Rebuilt the visual layer</h3>
+          <p>Light gradient hero with an inline-SVG globe, KPI cards with sparklines drawn from real series, gradient navigation, a working <code>⌘K</code> shortcut. Replaced an unreachable image host with Unsplash plus a generated-SVG fallback.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">06</span>
+        <div>
+          <h3>Made it deployable</h3>
+          <p>Training needs PyTorch; serving does not. A GRU forward pass is a few matrix multiplications, so the weights export to a <strong>1.4 MB</strong> bundle and inference reruns in NumPy &mdash; taking the runtime from ~2 GB to ~20 MB, which is the difference between fitting in a serverless function and not.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">07</span>
+        <div>
+          <h3>Added tests and CI</h3>
+          <p>73 tests. The one that matters most asserts NumPy and PyTorch agree to 1e-5: without it the deployed site could rank differently from every published metric, silently.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Bugs worth knowing about</h2><span class="tag">found by testing, not by reading</span></div>
+    <div class="bugs">
+      <div class="bug">
+        <h3>Demo personas were silently corrupted</h3>
+        <p>Clicking &ldquo;Read Article&rdquo; while testing the interface POSTed real interactions into the seeded histories. One persona drifted from 9 reads to 21, and its recommendations moved from AI/ML to Business &mdash; which looked exactly like a model failure.</p>
+        <p class="fix">Fixed by re-seeding, and a test now asserts each persona&rsquo;s top recommendation sits inside their stated interests.</p>
+      </div>
+      <div class="bug">
+        <h3>Personas had exhausted their own categories</h3>
+        <p>Recommendations exclude already-read articles. With only 9&ndash;18 articles per category and personas reading 20+, there was nothing on-topic left to suggest &mdash; so the model was pushed off-persona by the data, not by the maths.</p>
+        <p class="fix">Shortened the seeded histories so unread candidates always remain.</p>
+      </div>
+      <div class="bug">
+        <h3>Every deployed route returned 404</h3>
+        <p>Routing all traffic to one serverless function needs a catch-all rewrite, and that rewrite replaces the path &mdash; FastAPI saw <code>/api/index</code> whatever was requested. No header carries the original path, but the query string survives.</p>
+        <p class="fix">The path is smuggled through the query and restored by ASGI middleware before routing.</p>
+      </div>
+      <div class="bug">
+        <h3>Hydration errors in production only</h3>
+        <p>The greeting reads the local clock. The server rendered it in UTC and the browser in the reader&rsquo;s timezone, so React treated the mismatch as a hydration failure and discarded the server-rendered tree.</p>
+        <p class="fix">Marked <code>suppressHydrationWarning</code>, which is what that attribute exists for.</p>
+      </div>
+      <div class="bug">
+        <h3>The evaluation baseline never ran</h3>
+        <p><code>evaluate_tfidf_baseline</code> built a fresh vectorizer and called <code>transform</code> on it without fitting &mdash; so the comparison the report depends on crashed with <code>NotFittedError</code>.</p>
+        <p class="fix">The vectorizer now fits on first use.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>What runs where</h2><span class="tag">honest limits</span></div>
+    <div class="cols">
+      <div class="panel">
+        <h3>Live on Vercel <span class="pill live">deployed</span></h3>
+        <ul>
+          <li>All nine frontend routes</li>
+          <li>Recommendations from the trained GRU, via NumPy</li>
+          <li>News, users, analytics and model endpoints</li>
+          <li>Reads and bookmarks, kept in browser storage</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>Local only <span class="pill local">by design</span></h3>
+        <ul>
+          <li>Training and evaluation &mdash; needs PyTorch</li>
+          <li>JWT auth &mdash; needs writable state</li>
+          <li>SQLite writes &mdash; serverless disk is ephemeral</li>
+          <li>The <code>/model/train</code> control endpoints</li>
+        </ul>
+      </div>
+    </div>
+    <div class="prose" style="margin-top:1.5rem">
+      <p>
+        The deployed API is read-only on purpose. Interactions are accepted and
+        acknowledged but not persisted, because a serverless function has no durable
+        disk &mdash; the browser is the source of truth for live activity. Retraining
+        happens locally; <code>python -m ml.export_for_serving</code> rebuilds the
+        bundle and a push redeploys.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    Built on the NewsMind AI scaffold &middot; GRU sequential recommendation &middot;
+    Metrics from 1,314 held-out validation samples, 40 epochs, CPU.
+  </footer>
+
+</div>
