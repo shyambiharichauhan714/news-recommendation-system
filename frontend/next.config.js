@@ -4,20 +4,21 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "source.unsplash.com" },
       { protocol: "https", hostname: "picsum.photos" },
     ],
   },
   async rewrites() {
-    // Proxies /api/* calls to the FastAPI backend during local development.
-    // Set NEXT_PUBLIC_API_URL in .env.local to override the backend origin.
+    // Same-origin proxy: the browser always calls /api/* on this domain and
+    // Next forwards it to the API deployment, so there is no CORS to
+    // configure and no API URL baked into the client bundle.
+    //
+    //   local dev  -> http://localhost:8000 (uvicorn)
+    //   Vercel     -> set BACKEND_ORIGIN to the API project's URL
+    //
+    // If the backend is unreachable the frontend falls back to its bundled
+    // demo dataset (services/api.ts), so the site still renders.
     const backend = process.env.BACKEND_ORIGIN || "http://localhost:8000";
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${backend}/api/:path*`,
-      },
-    ];
+    return [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
   },
 };
 

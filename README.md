@@ -290,3 +290,89 @@ No application code changes are required.
   is a rule-based natural-language generator over the model's own similarity
   signals and the user's recent categories/topics — satisfying the
   Explainable AI requirement without depending on an external LLM API.
+
+## 12. Deployment (Vercel)
+
+Both halves of the project deploy to Vercel as **two projects from this one
+repository**.
+
+### Why the deployed backend has no PyTorch
+
+Training needs PyTorch and Sentence-Transformers; **serving does not**. A GRU
+forward pass is a handful of matrix multiplications, and the news embeddings
+are frozen once training finishes. So `ml/export_for_serving.py` writes a
+torch-free bundle — model weights, embeddings and the seeded dataset — and
+`ml/numpy_inference.py` reproduces `GRURecommender.forward()` in NumPy.
+
+That takes the runtime from roughly 2 GB (PyTorch) to about 20 MB (NumPy),
+which is the difference between fitting in a serverless function and not.
+`tests/test_numpy_inference.py` asserts the two implementations agree to
+within 1e-5, so the deployed rankings match every reported metric.
+
+Rebuild the bundle whenever the model is retrained:
+
+```bash
+cd backend
+python -m data.seed_db
+python -m ml.train
+python -m ml.export_for_serving      # -> backend/serving_bundle/ (~1.4 MB)
+```
+
+### Project 1 — API
+
+| Setting | Value |
+|---|---|
+| Root Directory | *(repository root)* |
+| Framework Preset | Other |
+| Install Command | *(default — uses `/requirements.txt`)* |
+
+`vercel.json` routes every request to `api/index.py`, which exposes the
+FastAPI app from `backend/serving/app.py`. Note that `/requirements.txt` is
+the slim serving set; local development uses
+`backend/requirements-py313.txt`.
+
+### Project 2 — Frontend
+
+| Setting | Value |
+|---|---|
+| Root Directory | `frontend` |
+| Framework Preset | Next.js |
+| Environment Variable | `BACKEND_ORIGIN` = the API project's URL |
+
+The frontend proxies `/api/*` to `BACKEND_ORIGIN` through a Next.js rewrite,
+so the browser only ever talks to its own origin and there is no CORS to
+configure.
+
+### What the deployment does not do
+
+The serverless API is **read-only**. `POST /api/interactions/*` is accepted
+and acknowledged but not persisted, and reads/bookmarks live in the browser's
+`localStorage` instead. Auth and the training endpoints are only available in
+the full local backend (`app/main.py`), since both need writable state.
+
+---
+
+## 13. Tests and CI
+
+```bash
+# Backend — 45 tests, no PyTorch required
+cd backend && python -m pytest
+
+# Frontend — 28 tests
+cd frontend && npm test
+```
+
+The backend suite covers NumPy/PyTorch parity, the API contract every
+frontend call depends on, sequence-window construction, and dataset
+determinism. One test asserts each demo persona's top recommendation falls
+inside their stated interests — that is what catches a corrupted or
+mis-ordered reading history, which otherwise looks like a model bug.
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- **backend** — installs only the slim serving requirements on Python 3.11
+  and 3.13, runs pytest, and asserts the serving path never imports
+  `torch`, `sklearn`, `sqlalchemy` or `sentence_transformers`
+- **frontend** — typecheck, lint, unit tests, production build
+- **model smoke test** (main only) — seeds, trains two epochs, re-exports the
+  bundle and re-checks NumPy/PyTorch parity end to end

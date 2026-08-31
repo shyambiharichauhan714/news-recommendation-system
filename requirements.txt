@@ -1,0 +1,10 @@
+# Runtime dependencies for the Vercel deployment ONLY.
+#
+# Inference runs on exported weights via NumPy (see backend/ml/numpy_inference.py),
+# so PyTorch, Sentence-Transformers, scikit-learn and SQLAlchemy are all absent:
+# together they exceed the serverless size limit, and none are needed to serve.
+#
+# Local development and training use backend/requirements-py313.txt instead.
+fastapi==0.115.6
+pydantic==2.10.4
+numpy==2.2.1

@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push supersedes an in-flight run on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install serving dependencies
+        # Deliberately the slim set the deployment uses — this also proves the
+        # serving path never quietly grows a PyTorch import.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Run tests
+        working-directory: backend
+        run: python -m pytest -v
+
+      - name: Assert the serving path is torch-free
+        working-directory: backend
+        run: |
+          python - <<'PY'
+          import sys
+          import serving.app  # noqa: F401
+          heavy = {"torch", "sentence_transformers", "sklearn", "sqlalchemy"}
+          loaded = heavy & set(sys.modules)
+          assert not loaded, f"serving imported heavy deps: {sorted(loaded)}"
+          print("serving path is clean:", sorted(heavy), "not imported")
+          PY
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  model-smoke-test:
+    name: Model smoke test
+    runs-on: ubuntu-latest
+    # Only on main: this installs PyTorch, which is slow and not worth
+    # repeating on every pull-request push.
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install training dependencies (CPU torch)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r backend/requirements-py313.txt
+
+      - name: Seed, train briefly, and export
+        working-directory: backend
+        env:
+          EPOCHS: "2"
+        run: |
+          python -m data.seed_db
+          python -m ml.train --epochs 2
+          python -m ml.export_for_serving
+
+      - name: Verify NumPy inference still matches PyTorch
+        working-directory: backend
+        run: |
+          pip install pytest httpx
+          python -m pytest tests/test_numpy_inference.py -v
