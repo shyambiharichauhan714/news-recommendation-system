@@ -1,0 +1,25 @@
+# --- Web framework ---
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+pydantic==2.7.4
+pydantic-settings==2.3.4
+
+# --- Database ---
+sqlalchemy==2.0.31
+# Uncomment to use PostgreSQL instead of SQLite (see app/config.py):
+# psycopg2-binary==2.9.9
+
+# --- Auth ---
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+
+# --- ML / NLP ---
+torch==2.3.1
+scikit-learn==1.5.0
+pandas==2.2.2
+numpy==1.26.4
+sentence-transformers==3.0.1  # optional: falls back to TF-IDF if unavailable
+
+# --- Utilities ---
+python-dotenv==1.0.1

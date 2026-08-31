@@ -1,0 +1,5 @@
+This directory holds trained model artifacts after running `python -m ml.train`:
+  - gru_recommender.pt       (PyTorch model weights)
+  - model_config.json        (hyperparameters used for training)
+  - loss_history.json        (per-epoch train/val loss)
+  - evaluation_results.json  (from `python -m ml.evaluate`)

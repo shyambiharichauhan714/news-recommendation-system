@@ -1,0 +1,25 @@
+# Node
+node_modules/
+.next/
+out/
+frontend/.env.local
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.env
+
+# ML artifacts
+backend/saved_models/*.pt
+backend/saved_models/*.pkl
+backend/data/*.db
+backend/data/embeddings/*.npy
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript incremental build cache
+frontend/tsconfig.tsbuildinfo

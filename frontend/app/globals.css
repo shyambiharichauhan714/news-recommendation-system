@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-surface text-ink-900;
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-card border border-surface-border rounded-xl2 shadow-soft;
+  }
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-card-hover;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-gradient text-white font-medium px-5 py-2.5 shadow-glow transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-white border border-surface-border text-ink-700 font-medium px-5 py-2.5 transition-colors duration-150 hover:bg-surface-muted disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+  .skeleton {
+    @apply bg-surface-muted rounded-lg relative overflow-hidden;
+    background-image: linear-gradient(
+      90deg,
+      #f0f1f8 0px,
+      #e7e9f3 40px,
+      #f0f1f8 80px
+    );
+    background-size: 600px;
+    animation: shimmer 1.6s infinite linear;
+  }
+}
+
+/* --- Hero illustration animation ---------------------------------------
+   The globe fakes rotation by sweeping its meridians: each one grows from
+   edge-on (rx 0) to full width and back, staggered by negative delays so the
+   three are always at different points in the cycle. Everything else is a
+   slow float/pulse so the panel feels alive without pulling focus from the
+   copy beside it. */
+
+@keyframes hg-meridian {
+  0%,
+  100% {
+    rx: 0px;
+    opacity: 0.15;
+  }
+  50% {
+    rx: 88px;
+    opacity: 0.5;
+  }
+}
+
+@keyframes hg-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+@keyframes hg-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes hg-breathe {
+  0%,
+  100% {
+    opacity: 0.14;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.26;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes hg-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes hg-shimmer {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0.34;
+    transform: translateX(10px);
+  }
+}
+
+.hg-meridian {
+  animation: hg-meridian 9s ease-in-out infinite;
+}
+.hg-float {
+  animation: hg-float 6s ease-in-out infinite;
+}
+.hg-bob {
+  animation: hg-bob 8s ease-in-out infinite;
+}
+.hg-breathe {
+  /* Scale needs an origin inside the shape's own box, not the SVG canvas. */
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hg-breathe 7s ease-in-out infinite;
+}
+.hg-twinkle {
+  animation: hg-twinkle 4s ease-in-out infinite;
+}
+.hg-shimmer {
+  animation: hg-shimmer 7s ease-in-out infinite;
+}
+
+/* Anyone who has asked their OS to reduce motion gets the static scene. */
+@media (prefers-reduced-motion: reduce) {
+  .hg-meridian,
+  .hg-float,
+  .hg-bob,
+  .hg-breathe,
+  .hg-twinkle,
+  .hg-shimmer {
+    animation: none;
+  }
+}
+
+/* Thin scrollbar for sidebar / lists */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
