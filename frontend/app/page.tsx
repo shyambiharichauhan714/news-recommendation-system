@@ -33,6 +33,9 @@ import TrendingTopics from "@/components/dashboard/TrendingTopics";
 import HeroGlobe from "@/components/dashboard/HeroGlobe";
 import { ProfileCard, FavoriteCategories, RecentlyRead, GruModelCard } from "@/components/dashboard/RightRail";
 
+/** Depends on the *viewer's* local clock, so it can only be correct on the
+ *  client. The server renders in UTC, which is a different time of day for
+ *  most readers — see the suppressHydrationWarning note at the call site. */
 function greeting() {
   const hour = new Date().getHours();
   if (hour < 12) return "Good Morning";
@@ -147,7 +150,14 @@ export default function HomePage() {
     <div className="space-y-8">
       {/* Greeting */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight">
+        {/* suppressHydrationWarning: the server renders this in UTC and the
+            browser in the reader's own timezone, so the two legitimately
+            differ. Without it React treats the mismatch as a hydration
+            failure and throws away the whole server-rendered tree. */}
+        <h1
+          suppressHydrationWarning
+          className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight"
+        >
           {greeting()}, {profile?.name.split(" ")[0] ?? "there"}
           <span className="ml-1.5" role="img" aria-label="waving hand">
             👋

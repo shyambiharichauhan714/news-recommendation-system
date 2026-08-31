@@ -1,0 +1,10 @@
+# The API deployment only needs api/ + backend/. Everything below is either
+# the separately-deployed frontend, a local-only artifact, or a heavy folder
+# that would slow the upload for no benefit.
+frontend/
+backend/.venv/
+backend/data/*.db
+backend/saved_models/*.pt
+backend/tests/
+.github/
+*.md

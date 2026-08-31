@@ -20,7 +20,7 @@ from pathlib import Path
 # regardless of the working directory the platform chooses.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from fastapi import FastAPI, HTTPException, Query  # noqa: E402
+from fastapi import FastAPI, HTTPException, Query, Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
@@ -175,3 +175,19 @@ def loss_curve():
     import json
 
     return json.loads(path.read_text())
+
+# --- fallback --------------------------------------------------------------
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def not_found(full_path: str):
+    """Explains a 404 instead of leaving a bare {"detail": "Not Found"}.
+
+    On a platform that rewrites paths, an unexplained 404 is indistinguishable
+    from a routing misconfiguration, so report what the app actually saw.
+    """
+    return {
+        "error": "no route matched",
+        "path_seen_by_api": f"/{full_path}",
+        "docs": "/docs",
+    }

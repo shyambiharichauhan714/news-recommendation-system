@@ -23,3 +23,11 @@ Thumbs.db
 
 # TypeScript incremental build cache
 frontend/tsconfig.tsbuildinfo
+
+.vercel
+.env*
+
+# Vercel CLI local link + pulled env
+.vercel/
+frontend/.vercel/
+frontend/.env.check
