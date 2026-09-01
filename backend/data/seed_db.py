@@ -6,7 +6,8 @@ Populates the SQLite database with:
   - Demo users with hashed passwords (default password: "demo1234")
   - UserPreferences rows derived from each persona
   - UserInteraction rows built from each persona's chronological read_sequence
-    (spaced 3 hours apart, ending "now", alternating read/bookmark types)
+    (spread across the 14-day trend window, ending "now", alternating
+    read/bookmark types)
 
 Run from the backend/ directory:
     python -m data.seed_db
@@ -33,6 +34,9 @@ from app.utils.security import hash_password  # noqa: E402
 from data.generate_dataset import NOW, generate_dataset  # noqa: E402
 
 DEFAULT_DEMO_PASSWORD = "demo1234"
+
+# Matches the window the Interest Trends chart plots.
+TREND_WINDOW_DAYS = 13
 
 
 def seed() -> None:
@@ -98,10 +102,22 @@ def seed() -> None:
                 )
             )
 
-            # Build chronological interactions ending at NOW, 3 hours apart.
+            # Spread each history evenly across the trend window, ending at NOW.
+            #
+            # Spacing every read 3 hours apart packed a 9-article history into
+            # a single day, so the 14-day Interest Trends chart had twelve
+            # empty days and a two-point stub. Spreading over the window gives
+            # one reading day per article and, because the step is rarely a
+            # multiple of 24h, a natural spread of reading hours for the
+            # most-active-hour analytics.
+            #
+            # Order is preserved exactly — timestamps stay monotonic in
+            # sequence order, which is what the GRU is trained on.
             n = len(u.read_sequence)
+            total_hours = TREND_WINDOW_DAYS * 24
+            step_hours = total_hours / max(n - 1, 1)
             for idx, news_id in enumerate(u.read_sequence):
-                timestamp = NOW - timedelta(hours=3 * (n - idx))
+                timestamp = NOW - timedelta(hours=total_hours - idx * step_hours)
                 interaction_type = "bookmark" if idx % 4 == 0 else "read"
                 pending_interactions.append(
                     UserInteraction(

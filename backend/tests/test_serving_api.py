@@ -97,6 +97,37 @@ def test_interest_trends_window(client):
     assert any(len(p) > 1 for p in points), "every day is empty — window anchoring is wrong"
 
 
+def test_interest_trends_series_are_continuous(client):
+    """Every day carries every plotted series, even at zero.
+
+    Recharts breaks a line wherever a key is missing, so a history with gaps
+    rendered as disconnected fragments instead of a line dipping to zero.
+    """
+    points = client.get(f"/api/analytics/interests/{DEMO_USER}?days=14").json()
+    series = {k for p in points for k in p if k != "date"}
+    assert series, "no category series to plot"
+    for point in points:
+        missing = series - set(point)
+        assert not missing, f"{point['date']} is missing {sorted(missing)}"
+
+
+def test_reading_history_spans_the_trend_window(client):
+    """Seeded reads must cover the window, not bunch into a single day.
+
+    Spacing every read three hours apart packed a nine-article history into
+    24 hours, leaving twelve of the fourteen chart days empty.
+    """
+    history = client.get(f"/api/users/{DEMO_USER}/history").json()
+    dates = {h["timestamp"][:10] for h in history}
+    assert len(dates) >= 5, f"history covers only {len(dates)} day(s) — chart would be a stub"
+
+
+def test_history_is_chronological(client):
+    """Order is what the GRU learns from; re-spacing must not disturb it."""
+    stamps = [h["timestamp"] for h in client.get(f"/api/users/{DEMO_USER}/history").json()]
+    assert stamps == sorted(stamps)
+
+
 def test_trending_topics(client):
     topics = client.get("/api/analytics/trending?limit=6").json()
     assert len(topics) == 6

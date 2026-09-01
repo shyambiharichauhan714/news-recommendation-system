@@ -149,31 +149,51 @@ class ServingBundle:
     def interest_trends(self, user_id: str, days: int = 14) -> list[dict]:
         """Per-day counts by category for the Interest Trends chart.
 
+        Two details the chart depends on:
+
         The window is anchored to the user's most recent interaction rather
-        than to today. The seeded dataset has fixed timestamps, so anchoring
-        to "now" would silently empty the chart once the data aged past the
-        window — which is exactly what a reader would read as a broken page.
+        than to today. The seeded dataset has fixed timestamps, so anchoring to
+        "now" would silently empty the chart once the data aged past the
+        window.
+
+        Every plotted category gets an explicit 0 on days with no reads. A
+        missing key breaks the line in Recharts, so a reader with gaps in their
+        history saw a chart of disconnected fragments rather than a line that
+        dips to zero.
         """
         history = self.history(user_id)
         if not history:
             return []
 
         latest = max(_parse(h["timestamp"]) for h in history)
-        points: dict[str, dict[str, int]] = {}
-        for i in range(days - 1, -1, -1):
-            points[(latest - timedelta(days=i)).strftime("%m-%d")] = {}
+        window = [
+            (latest - timedelta(days=i)).strftime("%m-%d") for i in range(days - 1, -1, -1)
+        ]
+
+        counts: dict[str, dict[str, int]] = {date: {} for date in window}
+        read_categories: set[str] = set()
 
         for h in history:
-            ts = _parse(h["timestamp"])
-            key = ts.strftime("%m-%d")
-            if key not in points:
-                continue
             article = self.by_id.get(h["news_id"])
-            if article:
-                category = article["category"]
-                points[key][category] = points[key].get(category, 0) + 1
+            if not article:
+                continue
+            key = _parse(h["timestamp"]).strftime("%m-%d")
+            if key not in counts:
+                continue
+            category = article["category"]
+            read_categories.add(category)
+            counts[key][category] = counts[key].get(category, 0) + 1
 
-        return [{"date": date, **counts} for date, counts in points.items()]
+        # The chart plots the user's preferred categories; include anything
+        # they actually read too, so an off-preference read still shows up.
+        plotted = read_categories | set(
+            self.user_preferences(user_id).get("preferred_categories") or []
+        )
+
+        return [
+            {"date": date, **{c: counts[date].get(c, 0) for c in sorted(plotted)}}
+            for date in window
+        ]
 
     def trending(self, limit: int = 8) -> list[dict]:
         counts: Counter[tuple[str, str]] = Counter()
