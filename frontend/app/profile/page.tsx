@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Globe, Users, Sparkles, UserPlus, Trash2, Pencil } from "lucide-react";
+import { Check, Globe, Users, Sparkles, UserPlus, Trash2, Pencil, Plus, Info } from "lucide-react";
 import { useActiveUser } from "@/lib/user-context";
 import { fetchUserPreferences } from "@/services/api";
 import { useCatalog } from "@/lib/catalog-context";
@@ -45,6 +45,15 @@ export default function ProfilePage() {
   }, [activeUserId]);
 
   const activeProfile = users.find((u) => u.id === activeUserId);
+
+  // Naming the one thing that is missing beats repeating both requirements
+  // back at someone who has already met one of them.
+  const canSubmit = draftName.trim().length > 0 && draftCategories.length > 0;
+  const blockingReason = !draftName.trim()
+    ? "Add your name to continue."
+    : draftCategories.length === 0
+    ? "Pick at least one interest to continue."
+    : null;
 
   const openForm = () => {
     setDraftName(customProfile?.name ?? "");
@@ -198,7 +207,12 @@ export default function ProfilePage() {
             />
 
             <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
-              Interests &mdash; pick at least one
+              Interests
+              <span className="ml-2 normal-case tracking-normal font-medium text-ink-400">
+                {draftCategories.length > 0
+                  ? `${draftCategories.length} selected`
+                  : "tap to pick at least one"}
+              </span>
             </p>
             <div className="flex flex-wrap gap-2">
               {allCategories.map((cat) => {
@@ -210,13 +224,13 @@ export default function ProfilePage() {
                     onClick={() => toggleDraftCategory(cat)}
                     aria-pressed={picked}
                     className={cn(
-                      "px-3.5 py-2 rounded-full text-sm font-medium border transition-colors",
+                      "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium border-2 transition-all",
                       picked
-                        ? cn(c.bg, c.text, "border-transparent")
-                        : "bg-white text-ink-600 border-surface-border hover:bg-surface-muted"
+                        ? cn(c.bg, c.text, "border-current shadow-soft")
+                        : "bg-white text-ink-600 border-surface-border hover:border-brand-300 hover:text-brand-700"
                     )}
                   >
-                    {picked && <Check size={13} className="inline mr-1.5 -mt-0.5" />}
+                    {picked ? <Check size={13} /> : <Plus size={13} className="opacity-60" />}
                     {cat}
                   </button>
                 );
@@ -226,8 +240,16 @@ export default function ProfilePage() {
             <div className="mt-5 flex flex-wrap items-center gap-2.5">
               <button
                 onClick={handleCreateProfile}
-                disabled={!draftName.trim() || draftCategories.length === 0}
-                className="btn-primary text-sm py-2 disabled:opacity-40 disabled:pointer-events-none"
+                disabled={!canSubmit}
+                title={blockingReason ?? undefined}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2 text-sm font-medium transition-all",
+                  canSubmit
+                    ? "bg-brand-gradient text-white shadow-glow hover:scale-[1.02] active:scale-[0.98]"
+                    : // Legible, not a ghost: a control you cannot read looks
+                      // broken rather than blocked.
+                      "bg-surface-muted text-ink-400 border border-surface-border cursor-not-allowed"
+                )}
               >
                 {customProfile ? "Save changes" : "Create profile"}
               </button>
@@ -245,11 +267,12 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {!draftName.trim() || draftCategories.length === 0 ? (
-              <p className="mt-3 text-xs text-ink-400">
-                Add a name and at least one interest to continue.
+            {blockingReason && (
+              <p className="mt-3 text-xs text-ink-500 flex items-center gap-1.5">
+                <Info size={13} className="text-brand-500 shrink-0" />
+                {blockingReason}
               </p>
-            ) : null}
+            )}
           </div>
         )}
       </section>
