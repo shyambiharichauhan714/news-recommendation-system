@@ -15,7 +15,7 @@ import { thumbnailFor } from "@/lib/placeholder";
 const STALL_TIMEOUT_MS = 4000;
 
 interface ArticleImageProps {
-  article: { news_id: string; category: string; title?: string };
+  article: { news_id: string; category: string; subcategory?: string; title?: string };
   className?: string;
   alt?: string;
   width?: number;
