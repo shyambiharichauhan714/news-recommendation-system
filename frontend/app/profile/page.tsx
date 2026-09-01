@@ -108,11 +108,12 @@ export default function ProfilePage() {
       <section className="card p-6">
         <div className="flex items-center gap-2 mb-1">
           <Users size={16} className="text-brand-600" />
-          <p className="font-semibold text-ink-900">Demo Mode &mdash; Switch User</p>
+          <p className="font-semibold text-ink-900">Reading profile</p>
         </div>
         <p className="text-sm text-ink-500 mb-4">
-          Switch between demo personas to see recommendations change based on each
-          user&apos;s reading sequence &mdash; or make your own and train it by reading.
+          Shyam Chauhan is a worked example with a ready-made reading history, so you
+          can see how recommendations follow a sequence. Create your own to get
+          recommendations from what <em>you</em> read.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {users.map((u) => {
@@ -150,7 +151,7 @@ export default function ProfilePage() {
                 "flex items-center gap-3 p-3.5 rounded-xl border border-dashed text-left transition-all",
                 customProfile
                   ? "border-brand-300 hover:bg-surface-muted"
-                  : "border-surface-border hover:border-brand-300 hover:bg-surface-muted"
+                  : "sm:col-span-2 border-brand-300 bg-brand-gradient-soft hover:shadow-glow"
               )}
             >
               <span className="w-11 h-11 rounded-full bg-brand-50 flex items-center justify-center shrink-0">

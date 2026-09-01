@@ -35,11 +35,16 @@ def test_single_article_and_404(client):
     assert client.get("/api/news/NOPE-404").status_code == 404
 
 
-def test_demo_users_exclude_training_cohort(client):
-    """The cohort exists to fit the model; only personas are selectable."""
+def test_switcher_offers_one_worked_example(client, bundle):
+    """The UI presents a single example persona, not a wall of strangers.
+
+    The rest stay in the dataset — their sequences are part of what the model
+    is fitted on — so this asserts the switcher is filtered, not the data.
+    """
     users = client.get("/api/users/demo").json()
-    assert len(users) > 0
-    assert all(u["id"].startswith("U") for u in users), "cohort ids leaked into the switcher"
+    assert len(users) == 1, f"switcher should offer one persona, got {len(users)}"
+    assert users[0]["id"].startswith("U"), "cohort id leaked into the switcher"
+    assert len(bundle.all_personas()) > 1, "the other personas were removed from the data"
 
 
 def test_recommendations_shape_and_bounds(client):
@@ -62,13 +67,15 @@ def test_recommendations_exclude_already_read(client, bundle):
     assert not ({r["news_id"] for r in recs} & already_read)
 
 
-def test_recommendations_match_user_persona(client):
-    """A persona's top recommendation should sit inside their stated interests.
+def test_recommendations_match_user_persona(client, bundle):
+    """Every persona's top recommendation should sit inside their interests.
 
     This is the check that catches a corrupted or mis-ordered reading history:
-    the model is only as good as the sequence it is fed.
+    the model is only as good as the sequence it is fed. It iterates the full
+    seeded set rather than the switcher's single example, so hiding personas
+    from the UI does not quietly shrink the coverage.
     """
-    for user in client.get("/api/users/demo").json():
+    for user in bundle.all_personas():
         prefs = client.get(f"/api/users/{user['id']}/preferences").json()
         categories = set(prefs["preferred_categories"])
         if not categories:
@@ -249,14 +256,14 @@ def test_loss_curve_is_a_plottable_series(client):
     assert curve[-1]["train_loss"] < curve[0]["train_loss"]
 
 
-def test_top_recommendation_carries_a_topic(client):
+def test_top_recommendation_carries_a_topic(client, bundle):
     """Model Insights labels its prediction with the topic of the top pick.
 
     Without subcategory the panel has nothing to name, and it previously fell
     back to the user's stated preference — presenting a value the model never
     produced as if it were the model's output.
     """
-    for user in client.get("/api/users/demo").json():
+    for user in bundle.all_personas():
         top = client.get(f"/api/recommendations/{user['id']}?top_n=1").json()
         assert top, f"{user['id']} got no recommendation"
         assert top[0].get("subcategory"), f"{user['id']} top pick has no topic"

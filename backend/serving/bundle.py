@@ -22,6 +22,13 @@ from ml.numpy_inference import NumpyGRURecommender, similarity_to_match_score
 
 BUNDLE_DIR = Path(__file__).resolve().parent.parent / "serving_bundle"
 
+# The persona offered as the worked example in the UI. The other seeded
+# personas stay in the dataset — their reading sequences are part of what the
+# GRU is fitted on — but only this one is presented as selectable, so the
+# switcher reads as "here is an example, now make your own" rather than a wall
+# of ten strangers.
+SHOWCASE_PERSONA_ID = "U001"
+
 
 class ServingBundle:
     def __init__(self, bundle_dir: Path = BUNDLE_DIR):
@@ -52,6 +59,16 @@ class ServingBundle:
     # --- users ------------------------------------------------------------
 
     def demo_users(self) -> list[dict]:
+        """Personas offered in the UI — the showcase one only.
+
+        Use all_personas() for anything that needs the full seeded set, such
+        as tests that check every persona still gets on-topic recommendations.
+        """
+        showcase = [u for u in self.users if u["id"] == SHOWCASE_PERSONA_ID]
+        return showcase or self.users[:1]
+
+    def all_personas(self) -> list[dict]:
+        """Every seeded persona, including those not shown in the switcher."""
         return self.users
 
     def history(self, user_id: str) -> list[dict]:
