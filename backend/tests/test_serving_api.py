@@ -140,7 +140,10 @@ FRONTEND_CONTRACT = [
     (f"/api/analytics/interests/{DEMO_USER}", "list", {"date"}),
     ("/api/analytics/trending", "list", {"topic", "category", "read_count", "growth_percent"}),
     ("/api/model/status", "dict", {"model_name", "status", "embedding_dim", "sequence_length"}),
-    ("/api/model/metrics", "dict", {"ndcg_at_5", "mrr"}),
+    ("/api/model/metrics", "dict",
+     {"model_name", "precision_at_5", "recall_at_5", "ndcg_at_5", "hit_rate_at_5",
+      "mrr", "train_loss", "val_loss", "epochs_trained"}),
+    ("/api/model/loss-curve", "list", {"epoch", "train_loss", "val_loss"}),
 ]
 
 
@@ -172,3 +175,43 @@ def test_reading_behavior_nested_shapes(client):
     assert body["category_breakdown"], "no category breakdown to chart"
     assert {"category", "count", "percent"} <= set(body["category_breakdown"][0])
     assert sum(c["percent"] for c in body["category_breakdown"]) == pytest.approx(100, abs=2)
+
+
+def test_model_metrics_are_real_numbers(client):
+    """Field presence is not enough — a wrong value looks like a working page.
+
+    An earlier version read the evaluation from a nested key that did not
+    exist, so every metric defaulted to 0.0 and Model Insights rendered
+    "0.0%" across the board with no error anywhere.
+    """
+    m = client.get("/api/model/metrics").json()
+
+    for field in ("precision_at_5", "recall_at_5", "ndcg_at_5", "hit_rate_at_5", "mrr"):
+        value = m[field]
+        assert 0 < value <= 1, f"{field} is {value} — metrics should be a real score in (0, 1]"
+
+    assert m["epochs_trained"] > 0
+    assert 0 < m["train_loss"] < 5
+    assert 0 < m["val_loss"] < 5
+
+
+def test_model_metrics_beat_the_baseline(client):
+    """The comparison the report rests on. If the GRU stopped winning, the
+    number to fix is the model, not the page."""
+    m = client.get("/api/model/metrics").json()
+    baseline = m.get("baseline_comparison")
+    assert baseline, "no baseline to compare against"
+    assert m["ndcg_at_5"] > baseline["tfidf_ndcg_at_5"]
+    assert m["hit_rate_at_5"] > baseline["tfidf_hit_rate_at_5"]
+
+
+def test_loss_curve_is_a_plottable_series(client):
+    """Recharts needs a list of points; an object renders an empty chart."""
+    curve = client.get("/api/model/loss-curve").json()
+
+    assert isinstance(curve, list), "loss curve must be a list, not parallel arrays"
+    assert len(curve) > 1
+    assert [p["epoch"] for p in curve] == list(range(1, len(curve) + 1))
+    assert all(p["train_loss"] > 0 and p["val_loss"] > 0 for p in curve)
+    # Training should have gone somewhere over 40 epochs.
+    assert curve[-1]["train_loss"] < curve[0]["train_loss"]

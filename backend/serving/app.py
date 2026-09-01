@@ -169,12 +169,33 @@ def model_metrics():
 
 @app.get("/api/model/loss-curve", tags=["model"])
 def loss_curve():
+    """Per-epoch losses as a list of points.
+
+    loss_history.json stores two parallel arrays; the chart plots a list of
+    {epoch, train_loss, val_loss} objects. Returning the raw file gave Recharts
+    an object where it expected an array, so the chart drew nothing at all
+    while the request still returned 200.
+    """
+    import json
+
     path = get_bundle().dir.parent / "saved_models" / "loss_history.json"
     if not path.exists():
         return []
-    import json
 
-    return json.loads(path.read_text())
+    history = json.loads(path.read_text())
+    if isinstance(history, list):
+        return history
+
+    train = history.get("train_loss", [])
+    val = history.get("val_loss", [])
+    return [
+        {
+            "epoch": i + 1,
+            "train_loss": round(t, 4),
+            "val_loss": round(v, 4),
+        }
+        for i, (t, v) in enumerate(zip(train, val))
+    ]
 
 # --- fallback --------------------------------------------------------------
 

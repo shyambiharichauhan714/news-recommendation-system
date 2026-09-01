@@ -271,18 +271,21 @@ class ServingBundle:
         }
 
     def model_metrics(self) -> dict:
-        evaluation = self.manifest.get("evaluation") or {}
-        gru = evaluation.get("gru", {})
-        return {
-            "precision_at_5": gru.get("precision", 0.0),
-            "recall_at_5": gru.get("recall", 0.0),
-            "ndcg_at_5": gru.get("ndcg", 0.0),
-            "hit_rate_at_5": gru.get("hit_rate", 0.0),
-            "mrr": gru.get("mrr", 0.0),
-            "baseline": evaluation.get("tfidf", {}),
-            "trained_at": self.manifest.get("trained_at"),
-        }
+        """The evaluation run, in the shape the Model Insights page reads.
 
+        evaluation_results.json already uses the frontend's field names, so
+        this passes them straight through rather than remapping. An earlier
+        version looked for a nested "gru" object that does not exist, so every
+        metric silently defaulted to 0.0 and the page rendered 0.0% across the
+        board — a wrong number is worse than a missing one, because nothing
+        looks broken.
+        """
+        evaluation = dict(self.manifest.get("evaluation") or {})
+        evaluation.setdefault("model_name", "GRU Sequential Recommendation Network")
+        evaluation.setdefault(
+            "created_at", self.manifest.get("trained_at") or self.manifest.get("exported_at")
+        )
+        return evaluation
 
 def _parse(value: str) -> datetime:
     ts = datetime.fromisoformat(value.replace("Z", "+00:00"))
