@@ -36,6 +36,13 @@ import {
   getTrendingTopics,
 } from "@/lib/mock-data";
 
+import {
+  CUSTOM_USER_ID,
+  getCustomHistory,
+  getCustomProfile,
+  isCustomUser,
+} from "@/lib/custom-profile";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 const FETCH_TIMEOUT_MS = 2500;
 
@@ -99,6 +106,9 @@ export async function fetchDemoUsers(): Promise<User[]> {
 }
 
 export async function fetchUserHistory(userId: string): Promise<UserInteraction[]> {
+  // A browser-created profile has no server-side row; its history is whatever
+  // the reader has actually opened.
+  if (isCustomUser(userId)) return getCustomHistory();
   return withFallback(
     () => tryFetch<UserInteraction[]>(`/users/${userId}/history`),
     () => buildInteractionsForUser(userId)
@@ -106,6 +116,14 @@ export async function fetchUserHistory(userId: string): Promise<UserInteraction[
 }
 
 export async function fetchUserPreferences(userId: string): Promise<UserPreferences> {
+  if (isCustomUser(userId)) {
+    const profile = getCustomProfile();
+    return {
+      user_id: CUSTOM_USER_ID,
+      preferred_categories: profile?.preferred_categories ?? [],
+      preferred_topics: profile?.preferred_topics ?? [],
+    };
+  }
   return withFallback(
     () => tryFetch<UserPreferences>(`/users/${userId}/preferences`),
     () => getDemoUser(userId).preferences
@@ -132,7 +150,29 @@ export async function postInteraction(
 
 // ---------------- Recommendations ----------------
 
+/**
+ * Ranks a client-held history with the same GRU the by-user route uses, by
+ * posting it to the API. Used for profiles the server has no record of.
+ */
+async function recommendationsForCustomProfile(topN: number): Promise<RecommendedArticle[]> {
+  const profile = getCustomProfile();
+  const history = getCustomHistory().map((h) => h.news_id);
+  return withFallback(
+    () =>
+      tryFetch<RecommendedArticle[]>("/recommendations/for-history", {
+        method: "POST",
+        body: JSON.stringify({
+          history,
+          preferred_categories: profile?.preferred_categories ?? [],
+          top_n: topN,
+        }),
+      }),
+    () => getRecommendationsForUser(DEMO_USERS[0].user.id, topN)
+  );
+}
+
 export async function fetchRecommendations(userId: string, topN = 5): Promise<RecommendedArticle[]> {
+  if (isCustomUser(userId)) return recommendationsForCustomProfile(topN);
   return withFallback(
     () => tryFetch<RecommendedArticle[]>(`/recommendations/${userId}?top_n=${topN}`),
     () => getRecommendationsForUser(userId, topN)
@@ -140,6 +180,7 @@ export async function fetchRecommendations(userId: string, topN = 5): Promise<Re
 }
 
 export async function fetchTopFive(userId: string): Promise<RecommendedArticle[]> {
+  if (isCustomUser(userId)) return recommendationsForCustomProfile(5);
   return withFallback(
     () => tryFetch<RecommendedArticle[]>(`/recommendations/${userId}/top-5`),
     () => getRecommendationsForUser(userId, 5)
@@ -148,7 +189,139 @@ export async function fetchTopFive(userId: string): Promise<RecommendedArticle[]
 
 // ---------------- Analytics ----------------
 
+
+// --- Client-side analytics for browser-created profiles ---------------------
+//
+// The API has no row for a profile that only exists in this browser, so asking
+// it for that user's dashboard returns defaults — "Technology, 0% of your
+// reads" regardless of what the person actually read. These derive the same
+// figures from the local history instead, using the same definitions the
+// server uses so the two agree.
+
+let newsCache: NewsArticle[] | null = null;
+
+async function catalog(): Promise<NewsArticle[]> {
+  if (!newsCache) newsCache = await fetchNews();
+  return newsCache;
+}
+
+async function customCategoryCounts(): Promise<Map<string, number>> {
+  const articles = await catalog();
+  const byId = new Map(articles.map((a) => [a.news_id, a]));
+  const counts = new Map<string, number>();
+  for (const h of getCustomHistory()) {
+    const article = byId.get(h.news_id);
+    if (article) counts.set(article.category, (counts.get(article.category) ?? 0) + 1);
+  }
+  return counts;
+}
+
+async function customDashboardStats(): Promise<DashboardStats> {
+  const history = getCustomHistory();
+  const recs = await recommendationsForCustomProfile(5);
+  const avgMatch = recs.length
+    ? Math.round(recs.reduce((sum, r) => sum + r.match_score, 0) / recs.length)
+    : 50;
+
+  const counts = await customCategoryCounts();
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  const preferred = getCustomProfile()?.preferred_categories ?? [];
+
+  return {
+    total_news_read: new Set(history.map((h) => h.news_id)).size,
+    recommendation_score: avgMatch,
+    // Before anything is read, the reader's own first interest is a truer
+    // answer than a hardcoded default.
+    top_category: (top?.[0] ?? preferred[0] ?? "Technology") as DashboardStats["top_category"],
+    ai_confidence: Math.min(99, avgMatch + 4),
+  };
+}
+
+async function customInterestTrends(days = 14): Promise<InterestTrendPoint[]> {
+  const history = getCustomHistory();
+  if (!history.length) return [];
+
+  const articles = await catalog();
+  const byId = new Map(articles.map((a) => [a.news_id, a]));
+  const latest = new Date(Math.max(...history.map((h) => +new Date(h.timestamp))));
+
+  const key = (d: Date) =>
+    `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const window: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(latest);
+    d.setDate(d.getDate() - i);
+    window.push(key(d));
+  }
+
+  const counts = new Map<string, Map<string, number>>(window.map((d) => [d, new Map()]));
+  const readCategories = new Set<string>();
+  for (const h of history) {
+    const article = byId.get(h.news_id);
+    const bucket = counts.get(key(new Date(h.timestamp)));
+    if (!article || !bucket) continue;
+    readCategories.add(article.category);
+    bucket.set(article.category, (bucket.get(article.category) ?? 0) + 1);
+  }
+
+  const plotted = [
+    ...new Set([...readCategories, ...(getCustomProfile()?.preferred_categories ?? [])]),
+  ].sort();
+
+  return window.map((date) => {
+    const bucket = counts.get(date)!;
+    const point: Record<string, string | number> = { date };
+    for (const c of plotted) point[c] = bucket.get(c) ?? 0;
+    return point as unknown as InterestTrendPoint;
+  });
+}
+
+async function customAnalytics(): Promise<AnalyticsData> {
+  const history = getCustomHistory();
+  const counts = await customCategoryCounts();
+  const total = [...counts.values()].reduce((a, b) => a + b, 0) || 1;
+
+  const trends = await customInterestTrends(14);
+  const reading_activity = trends.map((point) => {
+    const { date, ...rest } = point as unknown as Record<string, string | number>;
+    return {
+      date: String(date),
+      count: Object.values(rest).reduce<number>((a, b) => a + Number(b || 0), 0),
+    };
+  });
+
+  const days = new Map<string, number>();
+  const hours = new Map<string, number>();
+  for (const h of history) {
+    const d = new Date(h.timestamp);
+    const day = d.toLocaleDateString("en-US", { weekday: "long" });
+    days.set(day, (days.get(day) ?? 0) + 1);
+    const hour = d.getHours();
+    const bucket = hour < 11 ? "8:00 AM" : hour < 15 ? "12:00 PM" : hour < 20 ? "6:00 PM" : "9:00 PM";
+    hours.set(bucket, (hours.get(bucket) ?? 0) + 1);
+  }
+  const commonest = (m: Map<string, number>, fallback: string) =>
+    [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? fallback;
+
+  return {
+    reading_activity,
+    category_breakdown: [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, count]) => ({
+        category: category as AnalyticsData["category_breakdown"][number]["category"],
+        count,
+        percent: Math.round((count / total) * 100),
+      })),
+    most_active_day: commonest(days, "—"),
+    most_active_hour: commonest(hours, "—"),
+    total_interactions: history.length,
+    avg_reading_duration: 0,
+  };
+}
+
 export async function fetchDashboardStats(userId: string): Promise<DashboardStats> {
+  if (isCustomUser(userId)) return customDashboardStats();
   return withFallback(
     () => tryFetch<DashboardStats>(`/analytics/dashboard/${userId}`),
     () => getDashboardStats(userId)
@@ -156,6 +329,7 @@ export async function fetchDashboardStats(userId: string): Promise<DashboardStat
 }
 
 export async function fetchAnalytics(userId: string): Promise<AnalyticsData> {
+  if (isCustomUser(userId)) return customAnalytics();
   return withFallback(
     () => tryFetch<AnalyticsData>(`/analytics/reading-behavior/${userId}`),
     () => getAnalyticsForUser(userId)
@@ -163,6 +337,7 @@ export async function fetchAnalytics(userId: string): Promise<AnalyticsData> {
 }
 
 export async function fetchInterestTrends(userId: string): Promise<InterestTrendPoint[]> {
+  if (isCustomUser(userId)) return customInterestTrends();
   return withFallback(
     () => tryFetch<InterestTrendPoint[]>(`/analytics/interests/${userId}`),
     () => getInterestTrends(userId)

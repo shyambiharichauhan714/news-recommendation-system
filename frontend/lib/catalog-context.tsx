@@ -14,6 +14,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -21,6 +22,7 @@ import {
   ReactNode,
 } from "react";
 import { fetchNews, fetchDemoUsers } from "@/services/api";
+import { CUSTOM_USER_ID, getCustomProfile, type CustomProfile } from "@/lib/custom-profile";
 import type { NewsArticle, User } from "@/types";
 
 interface CatalogContextValue {
@@ -28,6 +30,10 @@ interface CatalogContextValue {
   users: User[];
   newsById: (id: string) => NewsArticle | undefined;
   userById: (id: string) => User | undefined;
+  /** The reader's own profile, if they have created one. */
+  customProfile: CustomProfile | null;
+  /** Re-reads the stored profile after it is created, edited or removed. */
+  refreshCustomProfile: () => void;
   /** False until the first load resolves. */
   ready: boolean;
 }
@@ -38,6 +44,12 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [ready, setReady] = useState(false);
+  const [customProfile, setCustomProfile] = useState<CustomProfile | null>(null);
+
+  // Read after mount: localStorage does not exist during the server render,
+  // and reading it inline would desynchronise the two.
+  useEffect(() => setCustomProfile(getCustomProfile()), []);
+  const refreshCustomProfile = useCallback(() => setCustomProfile(getCustomProfile()), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,15 +66,35 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CatalogContextValue>(() => {
     const newsIndex = new Map(news.map((n) => [n.news_id, n]));
-    const userIndex = new Map(users.map((u) => [u.id, u]));
+
+    // The reader's own profile is presented alongside the seeded personas, so
+    // every surface that resolves a user by id finds it without special cases.
+    const allUsers: User[] = customProfile
+      ? [
+          ...users,
+          {
+            id: CUSTOM_USER_ID,
+            name: customProfile.name,
+            email: "you@localhost",
+            profile_image: "",
+            preferred_language: "English",
+            persona: customProfile.persona,
+            created_at: customProfile.created_at,
+          } as User,
+        ]
+      : users;
+    const userIndex = new Map(allUsers.map((u) => [u.id, u]));
+
     return {
       news,
-      users,
+      users: allUsers,
       newsById: (id) => newsIndex.get(id),
       userById: (id) => userIndex.get(id),
+      customProfile,
+      refreshCustomProfile,
       ready,
     };
-  }, [news, users, ready]);
+  }, [news, users, ready, customProfile, refreshCustomProfile]);
 
   return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
 }

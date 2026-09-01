@@ -108,6 +108,48 @@ class ServingBundle:
             )
         return out
 
+    def recommend_for_history(
+        self,
+        history: list[str],
+        preferred_categories: list[str] | None = None,
+        top_n: int = 5,
+    ) -> list[dict]:
+        """Rank for a reading history supplied by the caller.
+
+        The by-user endpoint can only serve the ten seeded personas. A profile
+        someone creates in the browser has no server-side row, so its history
+        travels with the request and runs through the same model — otherwise a
+        custom profile could never get a real recommendation, only a
+        category filter dressed up as one.
+        """
+        prefs = {"preferred_categories": preferred_categories or []}
+        known = [n for n in history if n in self.by_id]
+        if not known:
+            return self._cold_start(prefs, top_n)
+
+        ranked = self.model.rank(known, exclude=set(known), top_n=top_n)
+        if not ranked:
+            return self._cold_start(prefs, top_n)
+
+        recent = [self.by_id[n] for n in known[-5:]]
+        recent_categories = [a["category"] for a in recent]
+        recent_topics = [a["subcategory"] for a in recent]
+
+        return [
+            {
+                **self.by_id[news_id],
+                "match_score": similarity_to_match_score(similarity),
+                "reason": build_reason(
+                    self.by_id[news_id],
+                    recent_categories,
+                    recent_topics,
+                    prefs["preferred_categories"],
+                    similarity_to_match_score(similarity),
+                ),
+            }
+            for news_id, similarity in ranked
+        ]
+
     def _cold_start(self, prefs: dict, top_n: int) -> list[dict]:
         """No history yet — fall back to the newest articles in the user's
         preferred categories, so the dashboard is never empty."""

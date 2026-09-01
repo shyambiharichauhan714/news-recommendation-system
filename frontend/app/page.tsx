@@ -15,6 +15,7 @@ import {
   fetchUserPreferences,
 } from "@/services/api";
 import { useCatalog } from "@/lib/catalog-context";
+import { isCustomUser } from "@/lib/custom-profile";
 import type {
   DashboardStats,
   InterestTrendPoint,
@@ -82,6 +83,26 @@ export default function HomePage() {
     };
   }, [activeUserId]);
 
+  // A browser-created profile is ranked against its own reading history, so a
+  // new read should change what it is offered next. Seeded personas are ranked
+  // server-side and do not need this.
+  const localReadCount = hydrated && isCustomUser(activeUserId) ? reads.length : null;
+  useEffect(() => {
+    if (localReadCount === null) return;
+    let cancelled = false;
+    Promise.all([
+      fetchRecommendations(activeUserId, 4),
+      fetchDashboardStats(activeUserId),
+    ]).then(([recsRes, statsRes]) => {
+      if (cancelled) return;
+      setRecs(recsRes);
+      setStats(statsRes);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUserId, localReadCount]);
+
   // Resolved against the catalog rather than at fetch time: the catalog may
   // still be loading when the history request resolves, which would otherwise
   // leave the rail permanently empty.
@@ -117,7 +138,13 @@ export default function HomePage() {
     return reads.filter((r) => !seeded.has(r.news_id)).length;
   }, [reads, seededRead]);
 
-  const totalRead = (stats?.total_news_read ?? 0) + (hydrated ? newReadCount : 0);
+  // Seeded personas get their count from the server, which knows nothing about
+  // reads made here — so local ones are added. A browser-created profile's
+  // stats are already derived from that same local history, and adding them
+  // again would count every read twice.
+  const totalRead =
+    (stats?.total_news_read ?? 0) +
+    (hydrated && !isCustomUser(activeUserId) ? newReadCount : 0);
 
   // --- Series behind the KPI mini-charts, all derived from real responses ---
 
@@ -140,11 +167,13 @@ export default function HomePage() {
   const matchScores = useMemo(() => recs.map((r) => r.match_score), [recs]);
 
   // Share of this user's history that sits in their top category.
+  // Counts the merged view, so a browser-created profile — which has no
+  // server-side history at all — still reports a real share once it reads.
   const topCategoryShare = useMemo(() => {
-    if (!stats || !seededRead.length) return 0;
-    const inTop = seededRead.filter((a) => a.category === stats.top_category).length;
-    return (inTop / seededRead.length) * 100;
-  }, [seededRead, stats]);
+    if (!stats || !recentArticles.length) return 0;
+    const inTop = recentArticles.filter((a) => a.category === stats.top_category).length;
+    return (inTop / recentArticles.length) * 100;
+  }, [recentArticles, stats]);
 
   return (
     <div className="space-y-8">

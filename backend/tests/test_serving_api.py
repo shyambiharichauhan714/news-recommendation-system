@@ -260,3 +260,50 @@ def test_top_recommendation_carries_a_topic(client):
         top = client.get(f"/api/recommendations/{user['id']}?top_n=1").json()
         assert top, f"{user['id']} got no recommendation"
         assert top[0].get("subcategory"), f"{user['id']} top pick has no topic"
+
+
+# --- browser-created profiles ---------------------------------------------
+
+
+def test_recommend_for_history_runs_the_model(client, bundle):
+    """A history posted by the client ranks exactly like a seeded user's.
+
+    Browser-created profiles have no server-side row, so this is the only path
+    by which they can get real model output instead of a category filter.
+    """
+    history = bundle.read_sequence("U001")
+    posted = client.post(
+        "/api/recommendations/for-history",
+        json={"history": history, "preferred_categories": ["AI & Machine Learning"], "top_n": 5},
+    ).json()
+    by_user = client.get("/api/recommendations/U001?top_n=5").json()
+
+    assert [r["news_id"] for r in posted] == [r["news_id"] for r in by_user]
+    assert [r["match_score"] for r in posted] == [r["match_score"] for r in by_user]
+
+
+def test_recommend_for_history_excludes_what_was_read(client):
+    history = ["N016", "N017", "N022"]
+    recs = client.post(
+        "/api/recommendations/for-history", json={"history": history, "top_n": 10}
+    ).json()
+    assert not ({r["news_id"] for r in recs} & set(history))
+
+
+def test_recommend_for_history_cold_starts_on_empty(client):
+    """A brand-new profile has read nothing; it still gets a useful list."""
+    recs = client.post(
+        "/api/recommendations/for-history",
+        json={"history": [], "preferred_categories": ["Sports"], "top_n": 4},
+    ).json()
+    assert len(recs) == 4
+    assert all(r["category"] == "Sports" for r in recs)
+    assert all(r["reason"] for r in recs)
+
+
+def test_recommend_for_history_ignores_unknown_ids(client):
+    recs = client.post(
+        "/api/recommendations/for-history",
+        json={"history": ["not-real", "N016", "also-fake"], "top_n": 3},
+    ).json()
+    assert len(recs) == 3

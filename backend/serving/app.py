@@ -44,6 +44,15 @@ app.add_middleware(
 )
 
 
+class HistoryRecommendIn(BaseModel):
+    """A reading history supplied by the client, for profiles the server
+    has no row for (see POST /api/recommendations/for-history)."""
+
+    history: list[str] = []
+    preferred_categories: list[str] = []
+    top_n: int = 5
+
+
 class InteractionIn(BaseModel):
     user_id: str
     news_id: str
@@ -124,6 +133,20 @@ def record_interaction(interaction_type: str, payload: InteractionIn):
 @app.get("/api/recommendations/{user_id}", tags=["recommendations"])
 def recommendations(user_id: str, top_n: int = Query(5, ge=1, le=50)):
     return get_bundle().recommendations(user_id, top_n=top_n)
+
+
+@app.post("/api/recommendations/for-history", tags=["recommendations"])
+def recommendations_for_history(payload: HistoryRecommendIn):
+    """Recommendations for a history the caller provides.
+
+    Used by browser-created profiles, which exist only on the client. Runs the
+    same GRU inference as the by-user route, so a custom profile gets real
+    model output rather than a filtered list.
+    """
+    top_n = max(1, min(payload.top_n, 50))
+    return get_bundle().recommend_for_history(
+        payload.history, payload.preferred_categories, top_n
+    )
 
 
 @app.get("/api/recommendations/{user_id}/top-5", tags=["recommendations"])
