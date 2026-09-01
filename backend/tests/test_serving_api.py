@@ -122,18 +122,53 @@ def test_interaction_accepted_but_not_persisted(client):
     assert body["persisted"] is False
 
 
-@pytest.mark.parametrize("path", [
-    "/api/news",
-    "/api/users/demo",
-    f"/api/users/{DEMO_USER}/history",
-    f"/api/users/{DEMO_USER}/preferences",
-    f"/api/recommendations/{DEMO_USER}",
-    f"/api/analytics/dashboard/{DEMO_USER}",
-    f"/api/analytics/interests/{DEMO_USER}",
-    "/api/analytics/trending",
-    "/api/model/status",
-    "/api/model/metrics",
-])
-def test_every_frontend_route_responds(client, path):
-    """Guards the full set of paths services/api.ts calls."""
-    assert client.get(path).status_code == 200
+# Every path services/api.ts calls, paired with the fields the pages actually
+# read. Asserting only the status code let a reading-behavior response ship
+# with the wrong field names — the endpoint returned 200 and the Analytics
+# page crashed on `undefined.length`. The shape is the contract.
+FRONTEND_CONTRACT = [
+    ("/api/news", "list", {"news_id", "title", "category", "published_at"}),
+    ("/api/users/demo", "list", {"id", "name", "persona"}),
+    (f"/api/users/{DEMO_USER}/history", "list", {"news_id", "interaction_type", "timestamp"}),
+    (f"/api/users/{DEMO_USER}/preferences", "dict", {"preferred_categories", "preferred_topics"}),
+    (f"/api/recommendations/{DEMO_USER}", "list", {"news_id", "match_score", "reason"}),
+    (f"/api/analytics/dashboard/{DEMO_USER}", "dict",
+     {"total_news_read", "recommendation_score", "top_category", "ai_confidence"}),
+    (f"/api/analytics/reading-behavior/{DEMO_USER}", "dict",
+     {"reading_activity", "category_breakdown", "most_active_day",
+      "most_active_hour", "total_interactions", "avg_reading_duration"}),
+    (f"/api/analytics/interests/{DEMO_USER}", "list", {"date"}),
+    ("/api/analytics/trending", "list", {"topic", "category", "read_count", "growth_percent"}),
+    ("/api/model/status", "dict", {"model_name", "status", "embedding_dim", "sequence_length"}),
+    ("/api/model/metrics", "dict", {"ndcg_at_5", "mrr"}),
+]
+
+
+@pytest.mark.parametrize("path,kind,fields", FRONTEND_CONTRACT, ids=[c[0] for c in FRONTEND_CONTRACT])
+def test_frontend_contract(client, path, kind, fields):
+    """Each endpoint returns the shape the frontend destructures."""
+    response = client.get(path)
+    assert response.status_code == 200, f"{path} returned {response.status_code}"
+    body = response.json()
+
+    if kind == "list":
+        assert isinstance(body, list), f"{path} should return a list"
+        assert body, f"{path} returned an empty list"
+        missing = fields - set(body[0])
+        assert not missing, f"{path} items missing {sorted(missing)}"
+    else:
+        assert isinstance(body, dict), f"{path} should return an object"
+        missing = fields - set(body)
+        assert not missing, f"{path} missing {sorted(missing)}"
+
+
+def test_reading_behavior_nested_shapes(client):
+    """The two arrays the Analytics charts plot, down to their item fields."""
+    body = client.get(f"/api/analytics/reading-behavior/{DEMO_USER}").json()
+
+    assert len(body["reading_activity"]) == 14
+    assert {"date", "count"} <= set(body["reading_activity"][0])
+
+    assert body["category_breakdown"], "no category breakdown to chart"
+    assert {"category", "count", "percent"} <= set(body["category_breakdown"][0])
+    assert sum(c["percent"] for c in body["category_breakdown"]) == pytest.approx(100, abs=2)

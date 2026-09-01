@@ -193,30 +193,65 @@ class ServingBundle:
         ]
 
     def reading_behavior(self, user_id: str) -> dict:
+        """Matches app/services/analytics_service.get_reading_behavior().
+
+        The Analytics page reads `reading_activity` and `category_breakdown`
+        directly; returning a different shape crashes the page rather than
+        degrading, so the field names and the percent field are part of the
+        contract, not an implementation detail.
+        """
         history = self.history(user_id)
-        by_category: Counter[str] = Counter()
-        by_hour: Counter[int] = Counter()
-        by_day: Counter[str] = Counter()
+
+        # Daily counts over a 14-day window anchored to the latest interaction,
+        # for the same reason interest_trends is: fixed timestamps would
+        # otherwise age out of a window anchored to today.
+        activity: dict[str, int] = {}
+        if history:
+            latest = max(_parse(h["timestamp"]) for h in history)
+            for i in range(13, -1, -1):
+                activity[(latest - timedelta(days=i)).strftime("%m-%d")] = 0
+            for h in history:
+                key = _parse(h["timestamp"]).strftime("%m-%d")
+                if key in activity:
+                    activity[key] += 1
+        reading_activity = [{"date": d, "count": c} for d, c in activity.items()]
+
+        category_counts: Counter[str] = Counter()
+        day_counts: Counter[str] = Counter()
+        hour_buckets: Counter[str] = Counter()
         durations: list[float] = []
 
         for h in history:
             article = self.by_id.get(h["news_id"])
             if article:
-                by_category[article["category"]] += 1
+                category_counts[article["category"]] += 1
             ts = _parse(h["timestamp"])
-            by_hour[ts.hour] += 1
-            by_day[ts.strftime("%A")] += 1
+            day_counts[ts.strftime("%A")] += 1
+            hour = ts.hour
+            if hour < 11:
+                hour_buckets["8:00 AM"] += 1
+            elif hour < 15:
+                hour_buckets["12:00 PM"] += 1
+            elif hour < 20:
+                hour_buckets["6:00 PM"] += 1
+            else:
+                hour_buckets["9:00 PM"] += 1
             if h.get("reading_duration"):
                 durations.append(float(h["reading_duration"]))
 
+        total = sum(category_counts.values()) or 1
+        category_breakdown = [
+            {"category": cat, "count": count, "percent": round(count / total * 100)}
+            for cat, count in category_counts.most_common()
+        ]
+
         return {
+            "reading_activity": reading_activity,
+            "category_breakdown": category_breakdown,
+            "most_active_day": day_counts.most_common(1)[0][0] if day_counts else "Monday",
+            "most_active_hour": hour_buckets.most_common(1)[0][0] if hour_buckets else "6:00 PM",
             "total_interactions": len(history),
             "avg_reading_duration": round(sum(durations) / len(durations), 1) if durations else 0.0,
-            "most_active_day": by_day.most_common(1)[0][0] if by_day else "—",
-            "most_active_hour": f"{by_hour.most_common(1)[0][0]:02d}:00" if by_hour else "—",
-            "category_distribution": [
-                {"category": c, "count": n} for c, n in by_category.most_common()
-            ],
         }
 
     # --- model ------------------------------------------------------------
