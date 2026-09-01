@@ -69,7 +69,7 @@ function buildNotifications(
 }
 
 export default function NotificationsMenu() {
-  const { activeUserId } = useActiveUser();
+  const { activeUserId, hydrated: userReady } = useActiveUser();
   const { openArticle } = useReader();
   const [open, setOpen] = useState(false);
   const [readIds, setReadIds] = useState<string[]>([]);
@@ -81,6 +81,7 @@ export default function NotificationsMenu() {
   const [model, setModel] = useState<ModelStatus | null>(null);
 
   useEffect(() => {
+    if (!userReady) return;
     let cancelled = false;
     Promise.all([
       fetchRecommendations(activeUserId, 3),
@@ -95,7 +96,7 @@ export default function NotificationsMenu() {
     return () => {
       cancelled = true;
     };
-  }, [activeUserId]);
+  }, [activeUserId, userReady]);
 
   const notifications = useMemo(
     () => buildNotifications(recs, trending, model),

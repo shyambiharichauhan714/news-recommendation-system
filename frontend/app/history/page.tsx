@@ -1,15 +1,18 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { BookOpenCheck, Bookmark, Eye, MousePointerClick, Clock } from "lucide-react";
+import { BookOpenCheck, Bookmark, Compass, Eye, MousePointerClick, Clock } from "lucide-react";
 import { useActiveUser } from "@/lib/user-context";
+import { isCustomUser } from "@/lib/custom-profile";
 import { useActivity } from "@/lib/activity-context";
 import { useCatalog } from "@/lib/catalog-context";
 import { useReader } from "@/lib/reader-context";
 import { fetchUserHistory } from "@/services/api";
-import type { InteractionType, NewsArticle, UserInteraction } from "@/types";
+import { mergeTimeline, type TimelineEntry } from "@/lib/timeline";
+import type { NewsArticle, UserInteraction } from "@/types";
 import { EmptyState } from "@/components/ui/States";
 import { cn, formatDate, formatTime, getCategoryColor, timeAgo } from "@/lib/utils";
 import ArticleImage from "@/components/ui/ArticleImage";
@@ -30,20 +33,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "bookmarked", label: "Bookmarked" },
 ];
 
-/** One row of the timeline — either a server-recorded interaction or a read
- *  made in this browser (which the backend hasn't been told about in demo
- *  mode). Both render identically. */
-interface TimelineEntry {
-  key: string;
-  news_id: string;
-  interaction_type: InteractionType;
-  timestamp: string;
-  local: boolean;
-}
-
 function HistoryContent() {
   const searchParams = useSearchParams();
-  const { activeUserId } = useActiveUser();
+  const { activeUserId, hydrated: userReady } = useActiveUser();
   const { reads, bookmarks, hydrated } = useActivity();
   const { newsById } = useCatalog();
   const { openArticle } = useReader();
@@ -52,13 +44,22 @@ function HistoryContent() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("all");
 
+  // Waits for the stored selection. Fetching on the provisional id asked for
+  // the default persona's history, and that response arriving after the real
+  // one put U001's reading list under someone else's profile.
   useEffect(() => {
+    if (!userReady) return;
+    let cancelled = false;
     setLoading(true);
     fetchUserHistory(activeUserId).then((data) => {
+      if (cancelled) return;
       setHistory(data);
       setLoading(false);
     });
-  }, [activeUserId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUserId, userReady]);
 
   // Deep link from the dashboard's "N saved articles" pill.
   useEffect(() => {
@@ -68,27 +69,12 @@ function HistoryContent() {
   }, [searchParams]);
 
   // Server history plus anything read in this browser, most recent first.
-  const timeline = useMemo<TimelineEntry[]>(() => {
-    const server: TimelineEntry[] = history.map((h) => ({
-      key: `s-${h.id}`,
-      news_id: h.news_id,
-      interaction_type: h.interaction_type,
-      timestamp: h.timestamp,
-      local: false,
-    }));
-    const local: TimelineEntry[] = hydrated
-      ? reads.map((r) => ({
-          key: `l-${r.news_id}-${r.at}`,
-          news_id: r.news_id,
-          interaction_type: "read" as InteractionType,
-          timestamp: r.at,
-          local: true,
-        }))
-      : [];
-    return [...server, ...local].sort(
-      (a, b) => +new Date(b.timestamp) - +new Date(a.timestamp)
-    );
-  }, [history, reads, hydrated]);
+  // Local reads are withheld until hydration so the first client render still
+  // matches the server output.
+  const timeline = useMemo<TimelineEntry[]>(
+    () => mergeTimeline(history, hydrated ? reads : []),
+    [history, reads, hydrated]
+  );
 
   const filtered = useMemo(
     () => (tab === "read" ? timeline.filter((e) => e.interaction_type === "read") : timeline),
@@ -118,6 +104,18 @@ function HistoryContent() {
     read: timeline.filter((e) => e.interaction_type === "read").length,
     bookmarked: bookmarkedArticles.length,
   };
+
+  // A profile created in this browser starts with nothing, so an empty page is
+  // its expected first state rather than a failure. Saying that — and offering
+  // the way out — beats a bare card that reads as a broken section.
+  const ownProfile = isCustomUser(activeUserId);
+
+  const browseAction = (
+    <Link href="/discover" className="btn-primary text-sm">
+      <Compass size={16} />
+      Browse articles
+    </Link>
+  );
 
   return (
     <div className="space-y-6">
@@ -161,7 +159,8 @@ function HistoryContent() {
           <EmptyState
             icon={Bookmark}
             title="Nothing saved yet"
-            description="Bookmark an article from any card and it will show up here."
+            description="Tap the bookmark on any article card, or Save for later while reading, and it will show up here."
+            action={browseAction}
           />
         ) : (
           <div className="card divide-y divide-surface-border overflow-hidden">
@@ -200,8 +199,13 @@ function HistoryContent() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={BookOpenCheck}
-          title="No reading history yet"
-          description="Articles you read will appear here in chronological order."
+          title={ownProfile ? "Your history starts here" : "No reading history yet"}
+          description={
+            ownProfile
+              ? "This profile hasn't opened an article yet. Each one you read is added below, and that sequence is exactly what the GRU model ranks your recommendations against."
+              : "Articles you read will appear here in chronological order."
+          }
+          action={browseAction}
         />
       ) : (
         <div className="space-y-8">

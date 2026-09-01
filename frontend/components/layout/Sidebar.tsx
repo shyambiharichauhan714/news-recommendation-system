@@ -29,12 +29,13 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { activeUserId } = useActiveUser();
+  const { activeUserId, hydrated: userReady } = useActiveUser();
   const [confidence, setConfidence] = useState<number | null>(null);
 
   // The meter reports the live AI-confidence figure the dashboard endpoint
   // returns for the active user, not a fixed design value.
   useEffect(() => {
+    if (!userReady) return;
     let cancelled = false;
     fetchDashboardStats(activeUserId).then((s) => {
       if (!cancelled) setConfidence(s.ai_confidence);
@@ -42,7 +43,7 @@ export default function Sidebar() {
     return () => {
       cancelled = true;
     };
-  }, [activeUserId]);
+  }, [activeUserId, userReady]);
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-72 bg-navy-gradient text-white z-30">

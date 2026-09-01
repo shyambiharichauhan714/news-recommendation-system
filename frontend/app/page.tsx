@@ -45,7 +45,7 @@ function greeting() {
 }
 
 export default function HomePage() {
-  const { activeUserId } = useActiveUser();
+  const { activeUserId, hydrated: userReady } = useActiveUser();
   const { reads, bookmarks, hydrated } = useActivity();
   const { newsById, userById } = useCatalog();
   const profile = userById(activeUserId);
@@ -58,7 +58,11 @@ export default function HomePage() {
   const [history, setHistory] = useState<UserInteraction[]>([]);
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
 
+  // Held until the stored selection is known. Firing on the provisional id
+  // requested the default persona everywhere on this page, and its six
+  // responses landing after the real ones replaced the reader's dashboard.
   useEffect(() => {
+    if (!userReady) return;
     let cancelled = false;
     setLoading(true);
     Promise.all([
@@ -81,7 +85,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeUserId]);
+  }, [activeUserId, userReady]);
 
   // A browser-created profile is ranked against its own reading history, so a
   // new read should change what it is offered next. Seeded personas are ranked

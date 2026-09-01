@@ -11,6 +11,17 @@ import { DEMO_USERS } from "@/lib/mock-data";
 interface UserContextValue {
   activeUserId: string;
   setActiveUserId: (id: string) => void;
+  /**
+   * False until the stored selection has been read.
+   *
+   * The provider has to start on a fixed id so the server render and the first
+   * client render agree, which means the real user is only known one effect
+   * later. Anything that fetches per user must wait for this: otherwise every
+   * page fires a request for the default persona first, and when that response
+   * lands after the real one it overwrites it — a reader with their own
+   * profile was shown U001's reading history.
+   */
+  hydrated: boolean;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -19,6 +30,7 @@ const STORAGE_KEY = "newsmind_active_user";
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [activeUserId, setActiveUserIdState] = useState<string>(DEMO_USERS[0].user.id);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
@@ -27,6 +39,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } catch {
       // localStorage unavailable — keep default user
     }
+    setHydrated(true);
   }, []);
 
   const setActiveUserId = (id: string) => {
@@ -39,7 +52,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UserContext.Provider value={{ activeUserId, setActiveUserId }}>
+    <UserContext.Provider value={{ activeUserId, setActiveUserId, hydrated }}>
       {children}
     </UserContext.Provider>
   );

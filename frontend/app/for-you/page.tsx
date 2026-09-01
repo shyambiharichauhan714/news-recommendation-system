@@ -13,7 +13,7 @@ import { cn, timeAgo } from "@/lib/utils";
 const TOP_N = 12;
 
 export default function ForYouPage() {
-  const { activeUserId } = useActiveUser();
+  const { activeUserId, hydrated: userReady } = useActiveUser();
   const [recs, setRecs] = useState<RecommendedArticle[]>([]);
   const [model, setModel] = useState<ModelStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,13 +25,16 @@ export default function ForYouPage() {
     setRecs(data);
   };
 
+  // Held until the stored selection is known, so a reader with their own
+  // profile never sees the default persona's recommendations flash in first.
   useEffect(() => {
+    if (!userReady) return;
     setLoading(true);
     setCategory("All");
     Promise.all([load(), fetchModelStatus().then(setModel)]).finally(() =>
       setLoading(false)
     );
-  }, [activeUserId]);
+  }, [activeUserId, userReady]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

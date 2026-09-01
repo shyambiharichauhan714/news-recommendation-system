@@ -23,17 +23,25 @@ import KpiCard from "@/components/ui/KpiCard";
 import { getCategoryColor } from "@/lib/utils";
 
 export default function AnalyticsPage() {
-  const { activeUserId } = useActiveUser();
+  const { activeUserId, hydrated: userReady } = useActiveUser();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Waits for the stored selection: fetching on the provisional id would
+  // request the default persona's analytics for a reader who has their own.
   useEffect(() => {
+    if (!userReady) return;
+    let cancelled = false;
     setLoading(true);
     fetchAnalytics(activeUserId).then((d) => {
+      if (cancelled) return;
       setData(d);
       setLoading(false);
     });
-  }, [activeUserId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUserId, userReady]);
 
   return (
     <div className="space-y-8">

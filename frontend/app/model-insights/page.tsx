@@ -28,7 +28,7 @@ import type { ModelMetrics, ModelStatus, RecommendedArticle, UserInteraction } f
 import SequenceFlow from "@/components/model/SequenceFlow";
 
 export default function ModelInsightsPage() {
-  const { activeUserId } = useActiveUser();
+  const { activeUserId, hydrated: userReady } = useActiveUser();
   const { newsById, userById } = useCatalog();
   const profile = userById(activeUserId);
   const [history, setHistory] = useState<UserInteraction[]>([]);
@@ -49,8 +49,10 @@ export default function ModelInsightsPage() {
     );
   }, []);
 
-  // Per-user, so this has to refetch when the persona changes.
+  // Per-user, so this has to refetch when the persona changes — and has to
+  // wait for the stored selection before the first fetch.
   useEffect(() => {
+    if (!userReady) return;
     let cancelled = false;
     Promise.all([fetchUserHistory(activeUserId), fetchRecommendations(activeUserId, 1)]).then(
       ([h, recs]) => {
@@ -62,7 +64,7 @@ export default function ModelInsightsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeUserId]);
+  }, [activeUserId, userReady]);
 
   // The last four articles actually read, newest last — the same window the
   // model is fed. Consecutive repeats collapse, matching the sequence builder.

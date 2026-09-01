@@ -132,14 +132,19 @@ straight to step 4 if you only want to run the app.
 ### Step 4 — Start the API
 
 ```bash
-python -m uvicorn app.main:app --reload --port 8000
+python -m uvicorn serving.app:app --reload --port 8000
 ```
 
 Check http://localhost:8000/docs — the interactive API reference.
 
-> `app.main` is the full backend (database, auth, training endpoints).
-> `serving.app` is the slim one that gets deployed — same routes, NumPy
-> inference, no database. Either works with the frontend.
+> `serving.app` is what gets deployed: NumPy inference, no database, and it
+> serves the route browser-created profiles need. Use it unless you are working
+> on the database.
+>
+> `app.main` is the full backend — database, auth, training endpoints. It has
+> no `/api/recommendations/for-history`, so a profile you create in the browser
+> falls back to a filtered list instead of live model output, and the console
+> shows `405 Method Not Allowed`. Everything else works the same.
 
 ### Step 5 — Start the frontend
 

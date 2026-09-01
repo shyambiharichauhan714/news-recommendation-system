@@ -19,7 +19,7 @@ import { avatarFor } from "@/lib/placeholder";
 const LANGUAGES = ["English", "Spanish", "French", "German", "Hindi", "Japanese"];
 
 export default function ProfilePage() {
-  const { activeUserId, setActiveUserId } = useActiveUser();
+  const { activeUserId, setActiveUserId, hydrated: userReady } = useActiveUser();
   const { users, customProfile, refreshCustomProfile, news } = useCatalog();
   const [showForm, setShowForm] = useState(false);
   const [draftName, setDraftName] = useState("");
@@ -36,13 +36,21 @@ export default function ProfilePage() {
     [news]
   );
 
+  // Waits for the stored selection, otherwise the default persona's
+  // categories load first and land in the form as if they were the reader's.
   useEffect(() => {
+    if (!userReady) return;
+    let cancelled = false;
     fetchUserPreferences(activeUserId).then((p) => {
+      if (cancelled) return;
       setPrefs(p);
       setSelectedCategories(p.preferred_categories);
     });
     setSaved(false);
-  }, [activeUserId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUserId, userReady]);
 
   const activeProfile = users.find((u) => u.id === activeUserId);
 
