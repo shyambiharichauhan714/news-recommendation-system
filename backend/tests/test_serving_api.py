@@ -162,7 +162,8 @@ FRONTEND_CONTRACT = [
     ("/api/users/demo", "list", {"id", "name", "persona"}),
     (f"/api/users/{DEMO_USER}/history", "list", {"news_id", "interaction_type", "timestamp"}),
     (f"/api/users/{DEMO_USER}/preferences", "dict", {"preferred_categories", "preferred_topics"}),
-    (f"/api/recommendations/{DEMO_USER}", "list", {"news_id", "match_score", "reason"}),
+    (f"/api/recommendations/{DEMO_USER}", "list",
+     {"news_id", "title", "category", "subcategory", "match_score", "reason"}),
     (f"/api/analytics/dashboard/{DEMO_USER}", "dict",
      {"total_news_read", "recommendation_score", "top_category", "ai_confidence"}),
     (f"/api/analytics/reading-behavior/{DEMO_USER}", "dict",
@@ -246,3 +247,16 @@ def test_loss_curve_is_a_plottable_series(client):
     assert all(p["train_loss"] > 0 and p["val_loss"] > 0 for p in curve)
     # Training should have gone somewhere over 40 epochs.
     assert curve[-1]["train_loss"] < curve[0]["train_loss"]
+
+
+def test_top_recommendation_carries_a_topic(client):
+    """Model Insights labels its prediction with the topic of the top pick.
+
+    Without subcategory the panel has nothing to name, and it previously fell
+    back to the user's stated preference — presenting a value the model never
+    produced as if it were the model's output.
+    """
+    for user in client.get("/api/users/demo").json():
+        top = client.get(f"/api/recommendations/{user['id']}?top_n=1").json()
+        assert top, f"{user['id']} got no recommendation"
+        assert top[0].get("subcategory"), f"{user['id']} top pick has no topic"

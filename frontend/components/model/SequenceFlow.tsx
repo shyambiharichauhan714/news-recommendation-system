@@ -13,9 +13,12 @@ interface SequenceStep {
 export default function SequenceFlow({
   steps,
   prediction,
+  matchScore,
 }: {
   steps: SequenceStep[];
   prediction: string;
+  /** Similarity the model gave its top pick, shown so the claim is checkable. */
+  matchScore?: number;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -32,7 +35,7 @@ export default function SequenceFlow({
             <div className={cn("px-4 py-2.5 rounded-xl border text-sm font-medium", colors.bg, colors.text, "border-transparent")}>
               {step.label}
             </div>
-            <ArrowRight size={16} className="text-ink-300" />
+            <ArrowRight size={16} className="text-ink-300 shrink-0" aria-hidden="true" />
           </motion.div>
         );
       })}
@@ -44,6 +47,9 @@ export default function SequenceFlow({
       >
         <Sparkles size={14} />
         {prediction}
+        {matchScore !== undefined && (
+          <span className="text-white/75 font-medium">{matchScore}%</span>
+        )}
       </motion.div>
     </div>
   );

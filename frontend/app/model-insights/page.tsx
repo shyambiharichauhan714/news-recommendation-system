@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ResponsiveContainer,
@@ -16,14 +16,23 @@ import {
 } from "recharts";
 import { BrainCircuit, Cpu, Layers3, Timer, Target, TrendingUp, ListChecks, Trophy, type LucideIcon } from "lucide-react";
 import { useActiveUser } from "@/lib/user-context";
-import { fetchModelMetrics, fetchModelStatus, fetchTrainingLossCurve } from "@/services/api";
-import { getDemoUser, getNewsById } from "@/lib/mock-data";
-import type { ModelMetrics, ModelStatus } from "@/types";
+import {
+  fetchModelMetrics,
+  fetchModelStatus,
+  fetchTrainingLossCurve,
+  fetchUserHistory,
+  fetchRecommendations,
+} from "@/services/api";
+import { useCatalog } from "@/lib/catalog-context";
+import type { ModelMetrics, ModelStatus, RecommendedArticle, UserInteraction } from "@/types";
 import SequenceFlow from "@/components/model/SequenceFlow";
 
 export default function ModelInsightsPage() {
   const { activeUserId } = useActiveUser();
-  const profile = getDemoUser(activeUserId);
+  const { newsById, userById } = useCatalog();
+  const profile = userById(activeUserId);
+  const [history, setHistory] = useState<UserInteraction[]>([]);
+  const [topPick, setTopPick] = useState<RecommendedArticle | null>(null);
   const [metrics, setMetrics] = useState<ModelMetrics | null>(null);
   const [status, setStatus] = useState<ModelStatus | null>(null);
   const [lossCurve, setLossCurve] = useState<{ epoch: number; train_loss: number; val_loss: number }[]>([]);
@@ -40,11 +49,39 @@ export default function ModelInsightsPage() {
     );
   }, []);
 
-  const recentSteps = profile.readSequence.slice(-4).map((id) => {
-    const article = getNewsById(id);
-    return { label: article?.subcategory ?? "Article", category: article?.category ?? "Technology" };
-  });
-  const predictedInterest = profile.preferences.preferred_topics[0] ?? "AI Agents";
+  // Per-user, so this has to refetch when the persona changes.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([fetchUserHistory(activeUserId), fetchRecommendations(activeUserId, 1)]).then(
+      ([h, recs]) => {
+        if (cancelled) return;
+        setHistory(h);
+        setTopPick(recs[0] ?? null);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUserId]);
+
+  // The last four articles actually read, newest last — the same window the
+  // model is fed. Consecutive repeats collapse, matching the sequence builder.
+  const recentSteps = useMemo(() => {
+    const ids: string[] = [];
+    for (const h of history) {
+      if (!ids.length || ids[ids.length - 1] !== h.news_id) ids.push(h.news_id);
+    }
+    return ids
+      .slice(-4)
+      .map((id) => newsById(id))
+      .filter(Boolean)
+      .map((a) => ({ label: a!.subcategory, category: a!.category }));
+  }, [history, newsById]);
+
+  // The model's actual next-item prediction. This used to read the user's
+  // first *stated* preference, which meant the panel claimed to show a GRU
+  // prediction while showing a value the model never produced.
+  const predictedInterest = topPick?.subcategory ?? null;
 
   const comparisonData = metrics
     ? [
@@ -160,18 +197,29 @@ export default function ModelInsightsPage() {
       <section className="card p-6">
         <p className="font-semibold text-ink-900 mb-1">User Behavior Sequence &rarr; Prediction</p>
         <p className="text-sm text-ink-500 mb-5">
-          Live example from {profile.user.name}&apos;s reading sequence, processed by the GRU model
+          Live example from {profile?.name ?? "this reader"}&apos;s reading sequence, processed by the GRU model
         </p>
-        {recentSteps.length > 0 ? (
+        {recentSteps.length > 0 && predictedInterest ? (
           <div className="overflow-x-auto pb-2">
-            <SequenceFlow steps={recentSteps} prediction={predictedInterest} />
+            <SequenceFlow
+              steps={recentSteps}
+              prediction={predictedInterest}
+              matchScore={topPick?.match_score}
+            />
           </div>
         ) : (
           <p className="text-sm text-ink-400">No sequence data yet for this user.</p>
         )}
         <div className="mt-5 pt-5 border-t border-surface-border flex items-center gap-2">
           <span className="text-sm text-ink-500">Predicted Interest:</span>
-          <span className="badge bg-brand-gradient-soft text-brand-700 font-semibold">{predictedInterest}</span>
+          <span className="badge bg-brand-gradient-soft text-brand-700 font-semibold">
+            {predictedInterest ?? "—"}
+          </span>
+          {topPick && (
+            <span className="text-xs text-ink-400">
+              {topPick.match_score}% match &middot; {topPick.title}
+            </span>
+          )}
         </div>
       </section>
     </div>
