@@ -154,7 +154,10 @@
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
 }
+/* Tinted from the ink scale rather than white: every surface this class is
+   used on — the sidebar, the search and notification dropdowns, the filter
+   rails — is light, so a white thumb was invisible on all of them. */
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(15, 18, 41, 0.18);
   border-radius: 999px;
 }
